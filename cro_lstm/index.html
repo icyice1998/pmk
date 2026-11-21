@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="LSTM models for carbapenem-resistant culture results (CRPA, CRAB, CRE, CRO): cohorts, performance and SHAP explanation.">
+<meta name="color-scheme" content="light dark">
+<title>CRO LSTM Report</title>
+<style>
+:root {
+  --color-fg: #1b1d21; --color-fg-muted: #5b6270; --color-bg: #ffffff; --color-panel: #f5f6f8; --color-border-line: #dcdfe5;
+  --font-anthropic-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-anthropic-serif: Georgia, "Times New Roman", serif;
+  --cds-font-size-body: 1.0625rem; --cds-font-size-caption: 0.875rem;
+  --cds-gap-xs: 4px; --cds-gap-sm: 8px; --cds-gap-md: 14px; --cds-gap-lg: 24px;
+  --cds-pad-md: 14px; --cds-pad-lg: 22px; --cds-radius: 8px;
+  --cds-text-secondary: #4a5160; --cds-chart-grid: #e7e9ee; --cds-chart-axis: #9aa1ae; --cds-chart-reference: #9aa1ae; --cds-chart-muted: #aab0bc;
+  --cds-surface-popover: #ffffff; --cds-border: #cfd3db; --cds-shadow-popover: 0 4px 14px rgba(0, 0, 0, .15);
+  --link: #1d5fa8; --selrow: rgba(27, 29, 33, .06);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-fg: #e8eaee; --color-fg-muted: #a3aab8; --color-bg: #14161a; --color-panel: #1c1f25; --color-border-line: #2c313a;
+    --cds-text-secondary: #b5bcc9; --cds-chart-grid: #262b33; --cds-chart-axis: #6b7383; --cds-chart-reference: #6b7383; --cds-chart-muted: #5a6272;
+    --cds-surface-popover: #1f232a; --cds-border: #353b46; --cds-shadow-popover: 0 4px 14px rgba(0, 0, 0, .5); --link: #7fb2ee; --selrow: rgba(232, 234, 238, .08);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --color-fg: #e8eaee; --color-fg-muted: #a3aab8; --color-bg: #14161a; --color-panel: #1c1f25; --color-border-line: #2c313a;
+  --cds-text-secondary: #b5bcc9; --cds-chart-grid: #262b33; --cds-chart-axis: #6b7383; --cds-chart-reference: #6b7383; --cds-chart-muted: #5a6272;
+  --cds-surface-popover: #1f232a; --cds-border: #353b46; --cds-shadow-popover: 0 4px 14px rgba(0, 0, 0, .5); --link: #7fb2ee; --selrow: rgba(232, 234, 238, .08);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; scroll-padding-top: 64px; }
+body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); line-height: 1.7; }
+a { color: var(--link); }
+.skip { position: absolute; left: -999px; top: 0; background: var(--color-bg); padding: 10px 14px; z-index: 100; }
+.skip:focus { left: 8px; top: 8px; }
+.site { max-width: 1260px; margin: 0 auto; padding: 0 max(16px, env(safe-area-inset-left)) 0 max(16px, env(safe-area-inset-right)); }
+.toc { position: sticky; top: 0; z-index: 30; background: var(--color-bg); border-bottom: 1px solid var(--color-border-line); margin: 0 -16px; padding: 0 16px; padding-top: env(safe-area-inset-top, 0px); }
+.toc summary { list-style: none; cursor: pointer; min-height: 48px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: .95rem; }
+.toc summary::-webkit-details-marker { display: none; }
+.toc summary::after { content: "▾"; font-size: .9rem; color: var(--color-fg-muted); }
+.toc[open] summary::after { content: "▴"; }
+.toc ol { list-style: none; margin: 0; padding: 0 0 10px; }
+.toc a { display: block; padding: 10px 4px; min-height: 44px; color: var(--color-fg); text-decoration: none; font-size: .95rem; border-left: 3px solid transparent; padding-left: 10px; }
+.toc a.on { border-left-color: var(--link); font-weight: 600; color: var(--link); }
+.toc .toc-title { display: none; }
+.rp { min-width: 0; padding-bottom: 4rem; }
+.rp-head { padding: 28px 0 6px; }
+.rp-eyebrow { font-size: .8rem; letter-spacing: .09em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 8px; }
+.rp h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(1.6rem, 5.4vw, 2.35rem); line-height: 1.22; margin: 0 0 12px; text-wrap: balance; max-width: 24em; }
+.rp-sub { margin: 0; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+.rp { counter-reset: sec; }
+.rp h2 { counter-increment: sec; counter-reset: sub; font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(1.35rem, 4.4vw, 1.75rem); line-height: 1.25; margin: 3rem 0 .6rem; padding-top: 1.1rem; border-top: 1px solid var(--color-border-line); text-wrap: balance; }
+.rp h2::before { content: counter(sec) ". "; color: var(--color-fg-muted); }
+.rp h2#references::before { content: ""; }
+.rp h3 { counter-increment: sub; font-size: 1.05rem; font-weight: 600; margin: 2rem 0 .4rem; line-height: 1.35; }
+.rp h3::before { content: counter(sec) "." counter(sub) "  "; color: var(--color-fg-muted); font-weight: 500; }
+.rp p, .rp ul, .rp ol { max-width: 68ch; margin: 0 0 1rem; }
+.rp ul, .rp ol { padding-left: 1.3rem; }
+.rp li { margin-bottom: .45rem; }
+.rp-note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); border-left: 3px solid var(--color-border-line); padding-left: 12px; }
+.rp-num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.rp figure, .rp .rp-tablebox { margin: 1.6rem 0; }
+.rp figcaption, .rp .rp-caption { font-size: var(--cds-font-size-caption); line-height: 1.55; color: var(--color-fg-muted); margin: 0 0 .7rem; max-width: 70ch; }
+.rp figcaption b, .rp .rp-caption b { color: var(--color-fg); font-weight: 600; }
+.rp-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 2px; }
+.rp-scroll::-webkit-scrollbar, .rp-xscroll::-webkit-scrollbar { height: 8px; }
+.rp-scroll::-webkit-scrollbar-thumb, .rp-xscroll::-webkit-scrollbar-thumb { background: var(--color-border-line); border-radius: 4px; }
+.rp table { border-collapse: collapse; width: 100%; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.rp th { text-align: right; font-weight: 600; padding: 8px 12px; border-top: 1.5px solid var(--color-fg); border-bottom: 1px solid var(--color-fg); line-height: 1.3; vertical-align: bottom; background: var(--color-bg); }
+.rp td { text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+.rp th:first-child, .rp td:first-child, .rp th.rp-l, .rp td.rp-l { text-align: left; }
+.rp td:first-child { position: sticky; left: 0; background: var(--color-bg); z-index: 1; font-weight: 500; }
+.rp th:first-child { position: sticky; left: 0; z-index: 2; }
+.rp tbody tr:last-child td { border-bottom: 1.5px solid var(--color-fg); }
+.rp tr.rp-sel td { font-weight: 600; background: var(--color-panel); }
+.rp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 28px; }
+.rp-chart { position: relative; min-height: 240px; min-width: 0; }
+.rp-xscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.rp-chart svg text { font-family: var(--font-anthropic-sans); font-size: 11px; fill: var(--cds-text-secondary); }
+.rp-chart svg .rp-axtitle { font-size: 11.5px; fill: var(--color-fg); }
+.rp-legend { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 0 0 .8rem; font-size: var(--cds-font-size-caption); }
+.rp-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.rp-legend i { display: inline-block; width: 16px; height: 4px; border-radius: 2px; }
+.rp-legend i.rp-box { height: 11px; width: 11px; border-radius: 3px; }
+.rp-tip { position: absolute; pointer-events: none; z-index: 5; padding: 7px 10px; border-radius: 6px; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); color: var(--cds-text-secondary); font-size: .8125rem; line-height: 1.4; white-space: normal; max-width: min(300px, 90%); }
+.rp-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; padding: 16px; margin: 1.2rem 0; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-panel); }
+.rp-controls label { display: flex; flex-direction: column; gap: 6px; font-size: .85rem; color: var(--color-fg-muted); min-width: 0; font-weight: 500; }
+.rp-controls input, .rp-controls select { font: inherit; font-size: 16px; color: var(--color-fg); min-width: 0; width: 100%; min-height: 44px; padding: 8px 10px; border: 1px solid var(--cds-border); border-radius: 6px; background: var(--color-bg); }
+.rp-controls button { align-self: end; font: inherit; font-size: 16px; min-height: 44px; padding: 8px 16px; border: 1px solid var(--cds-border); border-radius: 6px; background: var(--color-bg); color: var(--color-fg); cursor: pointer; }
+.rp-controls button:active { background: var(--color-panel); }
+.rp-controls :focus-visible, .toc :focus-visible, #totop:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.rp-count { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: 0 0 .6rem; }
+.rp-empty { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: 14px 0; }
+.rp-criteria { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 18px; margin: 1rem 0; }
+.rp-crit { border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: 14px 20px 8px; background: var(--color-panel); min-width: 0; }
+.rp-crit-h { font-weight: 600; margin: 0 0 .5rem; }
+.rp-crit ol { margin: 0 0 .6rem; padding-left: 1.2rem; max-width: none; font-size: .95rem; }
+.rp-flow svg text { font-size: 12px; }
+.rp-refs { font-size: .9rem; max-width: 76ch; padding-left: 1.5rem; }
+.rp-foot { margin-top: 3rem; padding-top: 14px; border-top: 1px solid var(--color-border-line); color: var(--color-fg-muted); font-size: .85rem; max-width: 76ch; }
+#totop { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--cds-border); background: var(--color-bg); color: var(--color-fg); font-size: 20px; line-height: 1; cursor: pointer; box-shadow: var(--cds-shadow-popover); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+#totop.show { opacity: 1; pointer-events: auto; }
+@media (min-width: 1100px) {
+  .site { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px; }
+  .toc { position: sticky; top: 24px; align-self: start; margin: 0; padding: 28px 0 0; border: 0; background: transparent; max-height: calc(100vh - 48px); overflow: auto; }
+  .toc summary { display: none; }
+  .toc .toc-title { display: block; font-size: .75rem; letter-spacing: .09em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0 0 8px; }
+  .toc ol { padding: 0; }
+  .toc a { font-size: .9rem; padding: 6px 10px; min-height: 0; }
+}
+@media (max-width: 560px) {
+  .rp th, .rp td { padding: 8px 9px; }
+  .rp-controls { padding: 12px; grid-template-columns: 1fr; }
+  .rp-crit { padding: 12px 16px 6px; }
+}
+@media print {
+  .toc, #totop, .rp-controls { display: none !important; }
+  .site { display: block; }
+  .rp h2 { break-after: avoid; }
+  .rp figure, .rp .rp-tablebox { break-inside: avoid; }
+  .rp-scroll, .rp-xscroll { overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #totop { transition: none; } }
+
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="site">
+<nav class="toc" aria-label="Contents"><details id="tocd"><summary>Contents</summary><p class="toc-title">Contents</p><ol>
+<li><a href="#cohorts">Cohorts</a></li><li><a href="#methods">Methods</a></li><li><a href="#results">Results</a></li><li><a href="#shap">Model explanation</a></li><li><a href="#limitations">Limitations</a></li><li><a href="#reproducibility">Reproducibility</a></li><li><a href="#references">References</a></li>
+</ol></details></nav>
+<main id="main" class="rp" lang="en">
+<header class="rp-head">
+  <p class="rp-eyebrow">Technical report · Protocol RF 08_1_2563, version 2</p>
+  <h1 id="title">Prediction of Carbapenem-Resistant Culture Results from Routine Hospital Records Using Long Short-Term Memory Networks</h1>
+  <p class="rp-sub"><b>Project:</b> Prediction of drug-resistant pathogens using a neural network machine learning model through routine hospital electronic health record</p>
+  <p class="rp-sub"><b>Project period:</b> from approval by the research review subcommittee to 30 June 2027 (data collection to 30 June 2026; data preparation 1 to 31 July 2026; model refinement and testing 1 August 2026 to 30 June 2027)</p>
+  <p class="rp-sub">Cohorts: CRPA, CRAB, CRE and CRO · Last updated 21 November 2026</p>
+</header>
+
+
+
+
+
+<h2 id="cohorts">Cohorts</h2>
+<h3>Outcome definition and index day</h3>
+<ul>
+  <li>The index day (day 0) of a positive episode is the date of the patient's first carbapenem-resistant culture. The index day of a negative episode is a randomly selected culture date of a patient who never had a carbapenem-resistant culture.</li>
+  <li>Patients with a carbapenem-resistant culture before the index day were excluded from the cohort.</li>
+  <li>Screening specimens (stool, rectal swab, perianal and rectal samples) were excluded from outcome labelling.</li>
+  <li>CRPA: <i>P. aeruginosa</i> resistant, intermediate or dose-dependent to meropenem, imipenem or doripenem. CRE: Enterobacterales resistant, intermediate or dose-dependent to ertapenem, imipenem, meropenem or doripenem, with imipenem results disregarded for <i>Proteus</i>, <i>Morganella</i> and <i>Providencia</i>. CRAB: <i>A. baumannii</i> resistant, intermediate or dose-dependent to meropenem, imipenem or doripenem. CRO: a culture meeting the CRPA, CRAB or CRE definition.</li>
+</ul>
+<h3>Inclusion and exclusion criteria</h3>
+<div class="rp-criteria">
+  <div class="rp-crit">
+    <p class="rp-crit-h">Inclusion criteria</p>
+    <ol>
+      <li>At least one clinical (non-screening) culture of the target organism group with a carbapenem susceptibility interpretation recorded as resistant, intermediate, dose-dependent or susceptible. CRPA: <i>P. aeruginosa</i> tested against meropenem, imipenem or doripenem. CRAB: <i>A. baumannii</i> tested against the same three agents. CRE: Enterobacterales tested against ertapenem, imipenem, meropenem or doripenem. CRO: any of the three groups.</li>
+      <li>Resistant episode: the patient's first culture resistant, intermediate or dose-dependent to at least one tested carbapenem; its date is the index day.</li>
+      <li>Non-resistant episode: a patient with at least one tested culture and no carbapenem-resistant result at any time; one tested-culture date, chosen at random with a fixed seed, is the index day.</li>
+      <li>Index day on or after 1 January 2012 and not later than the last culture date in the database.</li>
+      <li>One episode per patient. No restriction on admission status or length of stay.</li>
+    </ol>
+  </div>
+  <div class="rp-crit">
+    <p class="rp-crit-h">Exclusion criteria</p>
+    <ol>
+      <li>Screening specimens (stool, rectum, perianal, rectal swab, rectal) were not used as outcome cultures.</li>
+      <li>Imipenem results of <i>Proteus mirabilis</i>, <i>Morganella morganii</i> and <i>Providencia</i> species were disregarded in the CRE definition.</li>
+      <li>Patients with a carbapenem-resistant result before the index day were excluded. For CRE this included the laboratory CRE flag on clinical cultures and CRE-positive rectal screening; for CRO, a prior result in any of the three groups.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="rp-controls" role="group" aria-label="Flow diagram">
+  <label>Cohort
+    <select id="f-cohort3" data-param="cohort">
+      <option value="CRPA">CRPA</option><option value="CRAB">CRAB</option><option value="CRE">CRE</option><option value="CRO">CRO</option>
+    </select></label>
+</div>
+<figure>
+  <figcaption><b>Figure 1.</b> Selection of episodes and allocation to the training, validation and test sets.</figcaption>
+  <div class="rp-chart rp-flow" data-draw="flow" data-source="cohort_flow cohorts" data-field="kept_total"></div>
+</figure>
+
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 1.</b> Study population by cohort and data partition.</p>
+  <div class="rp-scroll">
+  <table data-source="cohorts" data-row-key="cohort">
+    <thead><tr>
+      <th data-field="cohort">Cohort</th>
+      <th data-field="n_total">Episodes</th>
+      <th data-field="n_train">Training</th>
+      <th data-field="n_validation">Validation</th>
+      <th data-field="n_test">Test</th>
+      <th data-field="resistant_train_pct">Resistant, training (%)</th>
+      <th data-field="resistant_validation_pct">Resistant, validation (%)</th>
+      <th data-field="resistant_test_pct">Resistant, test (%)</th>
+      <th data-field="dynamic_channels">Daily channels</th>
+      <th data-field="antibiotic_channels">Antibiotic channels</th>
+    </tr></thead>
+    <tbody data-draw="tCohorts"></tbody>
+  </table>
+  </div>
+</div>
+
+<h2 id="methods">Methods</h2>
+<h3>Predictors</h3>
+<p>Each episode was represented as a sequence of 91 daily time steps, from day −90 to day 0. Each time step contained binary indicators for administration of each intravenous antibiotic by name, administration of each antibiotic class, admitting department, ward type (general, intensive care, isolation) and inter-ward transfer. Age (standardised using training-set statistics) and sex were supplied as constant channels at every time step. Only intravenous antibiotics were included. The number of channels differs slightly between cohorts (Table 1).</p>
+<h3>Data partitioning</h3>
+<p>Patients were assigned to the development or test partition by a deterministic hash of the pseudonymised hospital number, so that all episodes of a patient fall in one partition. Twenty per cent of development patients, selected at random with a fixed seed and grouped by patient, formed the validation set. Overlap of patients between training, validation and test sets was checked programmatically before every training run.</p>
+<h3>Model and training</h3>
+<p>The network comprised a masking layer, three stacked LSTM layers of 100 units, dropout (rate 0.2) and batch normalisation after each of the first two LSTM layers, and a single sigmoid output unit. Models were trained with the Adam optimiser and binary cross-entropy loss, a batch size of 64 and a maximum of 300 epochs. Training stopped when validation area under the precision-recall curve (AUPRC) failed to improve by at least 0.0005 for five consecutive epochs, and the weights of the best epoch were restored. Five models were trained per cohort using random seeds 42 to 46.</p>
+<h3>Model selection and evaluation</h3>
+<p>The final model for each cohort was the seed with the highest validation AUPRC; the test set was not used for selection. Performance was evaluated once on the test set. Confidence intervals were obtained from 1,000 bootstrap resamples of test patients. Calibration slope and intercept were estimated by logistic regression of the outcome on the log-odds of the predicted probability. Threshold-based metrics used the cut-off that maximised the Youden index on the validation set.</p>
+<h3>Model explanation</h3>
+<p>Feature attributions were computed with the gradient-based SHAP explainer (shap 0.43.0) for the final model of each cohort, using 200 training patients as the background distribution and 1,000 test patients as the explained sample. Attributions are expressed in units of predicted probability. For each patient, attributions were summed over the 91 days; the mean absolute value across patients is reported as mean |SHAP|. The direction of association of an antibiotic is the sign of its mean total SHAP value among explained patients who received it at least once in the window.</p>
+
+<h2 id="results">Results</h2>
+<h3>Discrimination and calibration</h3>
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 2.</b> Test-set performance of the final model for each cohort. Values in parentheses are 95% confidence intervals; the number of test episodes is followed by the number of resistant episodes.</p>
+  <div class="rp-scroll">
+  <table data-source="perf_text" data-row-key="cohort">
+    <thead><tr>
+      <th data-field="cohort">Cohort</th>
+      <th data-field="patients_events">Test episodes (resistant)</th>
+      <th data-field="auroc">AUROC</th>
+      <th data-field="auprc">AUPRC</th>
+      <th data-field="no_skill">AUPRC, no-skill</th>
+      <th data-field="brier">Brier score</th>
+      <th data-field="slope">Calibration slope</th>
+      <th data-field="intercept">Calibration intercept</th>
+    </tr></thead>
+    <tbody data-draw="tPerf"></tbody>
+  </table>
+  </div>
+</div>
+
+<figure>
+  <div class="rp-legend" data-draw="legend"></div>
+  <div class="rp-grid">
+    <div>
+      <figcaption><b>Figure 2.</b> Receiver operating characteristic curves.</figcaption>
+      <div class="rp-chart" data-draw="chartRoc" data-source="curves" data-field="y"></div>
+    </div>
+    <div>
+      <figcaption><b>Figure 3.</b> Precision-recall curves. Dotted lines mark the resistant proportion in each test set.</figcaption>
+      <div class="rp-chart" data-draw="chartPr" data-source="curves performance" data-field="y"></div>
+    </div>
+    <div>
+      <figcaption><b>Figure 4.</b> Calibration by decile of predicted probability.</figcaption>
+      <div class="rp-chart" data-draw="chartCal" data-source="curves" data-field="y"></div>
+    </div>
+  </div>
+</figure>
+
+<h3>Threshold-based performance</h3>
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 3.</b> Test-set classification metrics at the cut-off selected on the validation set.</p>
+  <div class="rp-scroll">
+  <table data-source="performance" data-row-key="cohort">
+    <thead><tr>
+      <th data-field="cohort">Cohort</th>
+      <th data-field="cutoff">Cut-off</th>
+      <th data-field="sensitivity">Sensitivity</th>
+      <th data-field="specificity">Specificity</th>
+      <th data-field="ppv">PPV</th>
+      <th data-field="npv">NPV</th>
+    </tr></thead>
+    <tbody data-draw="tThresh"></tbody>
+  </table>
+  </div>
+</div>
+
+<h3>Results by random seed</h3>
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 4.</b> Validation and test AUROC for the five trained seeds in each cohort. The selected seed is highlighted; selection used validation AUPRC only.</p>
+  <div class="rp-scroll">
+  <table data-source="seeds" data-row-key="cohort,seed">
+    <thead><tr>
+      <th data-field="cohort">Cohort</th>
+      <th data-field="seed">Seed</th>
+      <th data-field="epochs_trained">Epochs trained</th>
+      <th data-field="val_auroc">Validation AUROC</th>
+      <th data-field="val_auprc">Validation AUPRC</th>
+      <th data-field="val_loss">Validation loss</th>
+      <th data-field="test_auroc">Test AUROC</th>
+      <th data-field="selected">Selected</th>
+    </tr></thead>
+    <tbody data-draw="tSeeds"></tbody>
+  </table>
+  </div>
+</div>
+
+<h2 id="shap">Model explanation</h2>
+<h3>Contribution of each antibiotic</h3>
+<p>All intravenous antibiotics recorded in each cohort are listed. The filters below apply to both Figure 5 and Table 5; the cohort selected determines the ranking, direction and threshold filters.</p>
+
+<div class="rp-controls" role="group" aria-label="SHAP filters">
+  <label>Cohort for ranking
+    <select id="f-cohort" data-param="cohort">
+      <option value="CRPA">CRPA</option><option value="CRAB">CRAB</option><option value="CRE">CRE</option><option value="CRO">CRO</option>
+    </select></label>
+  <label>Antibiotic class
+    <select id="f-class" data-param="cls" data-draw="classSel" data-source="shap_antibiotics" data-field="drug_class"></select></label>
+  <label>Direction when administered
+    <select id="f-dir" data-param="dir">
+      <option value="">All</option><option value="up">Raises risk when administered</option><option value="down">Lowers risk when administered</option>
+    </select></label>
+  <label>Search antibiotic
+    <input id="f-q" data-param="q" type="search" placeholder="e.g. mero" autocomplete="off"></label>
+  <label>Minimum mean |SHAP|
+    <input id="f-minv" data-param="minv" type="number" min="0" step="0.001" value="0"></label>
+  <label>Sort by
+    <select id="f-sort" data-param="sort">
+      <option value="magnitude">Mean |SHAP|</option><option value="name">Name</option><option value="class">Class</option>
+    </select></label>
+  <button type="button" id="f-reset">Reset filters</button>
+</div>
+<p class="rp-count" data-draw="shapCount" data-source="shap_antibiotics" data-field="antibiotic"></p>
+
+<figure>
+  <figcaption><b>Figure 5.</b> Mean absolute SHAP value of each intravenous antibiotic for the selected cohort (probability units, summed over the 91-day window). Bar colour gives the direction of association when the antibiotic was administered.</figcaption>
+  <div class="rp-legend" data-draw="barLegend"></div>
+  <div class="rp-chart" data-draw="shapBars" data-source="shap_antibiotics" data-field="mean_abs_shap"></div>
+</figure>
+
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 5.</b> Mean absolute SHAP value of each antibiotic in all four cohorts. Cell shading is proportional to the value and coloured by direction of association as in Figure 5 (grey: not administered to any explained patient); a dash indicates that the antibiotic was not recorded in that cohort.</p>
+  <div class="rp-scroll">
+  <table data-source="shap_wide" data-row-key="antibiotic">
+    <thead><tr>
+      <th data-field="antibiotic">Antibiotic</th>
+      <th data-field="drug_class" class="rp-l">Class</th>
+      <th data-field="CRPA">CRPA</th>
+      <th data-field="CRAB">CRAB</th>
+      <th data-field="CRE">CRE</th>
+      <th data-field="CRO">CRO</th>
+    </tr></thead>
+    <tbody data-draw="tShap"></tbody>
+  </table>
+  </div>
+</div>
+
+<h3>Temporal distribution of attributions</h3>
+<figure>
+  <figcaption><b>Figure 6.</b> Share of total absolute SHAP value contributed by each day before the index day (day 0).</figcaption>
+  <div class="rp-legend" data-draw="legend2"></div>
+  <div class="rp-chart" data-draw="chartDay" data-source="shap_by_day" data-field="share_pct"></div>
+</figure>
+
+<h3>Temporal attribution of each antibiotic</h3>
+<p>SHAP values are shown for every day of the 91-day window (day 0 is the index day), for each antibiotic in each cohort. The filters in the previous section also apply here. Values are expressed in units of predicted probability and are taken from the final model of each cohort and the 1,000 explained test patients.</p>
+
+<div class="rp-controls" role="group" aria-label="Temporal view">
+  <label>Cohort
+    <select id="f-cohort2" data-param="cohort">
+      <option value="CRPA">CRPA</option><option value="CRAB">CRAB</option><option value="CRE">CRE</option><option value="CRO">CRO</option>
+    </select></label>
+  <label>Heat map shows
+    <select id="f-tmetric" data-param="tmetric">
+      <option value="magnitude">Mean |SHAP|, all patients</option>
+      <option value="direction">Mean SHAP when administered</option>
+    </select></label>
+  <label>Colour scale of heat map
+    <select id="f-tscale" data-param="tscale">
+      <option value="global">Shared across antibiotics</option>
+      <option value="row">Within each antibiotic</option>
+    </select></label>
+  <label>Antibiotic for detail view
+    <select id="f-drug" data-param="drug" data-draw="drugSel" data-source="shap_antibiotics" data-field="antibiotic"></select></label>
+</div>
+
+<figure>
+  <figcaption><b>Figure 7.</b> Daily SHAP value of each antibiotic for the selected cohort. Columns are days from day −90 (left) to day 0 (right). On narrow screens the chart scrolls sideways.</figcaption>
+  <div class="rp-chart rp-xscroll" data-draw="tempHeat" data-source="shap_temporal" data-field="mean_abs_shap"></div>
+</figure>
+
+<figure>
+  <figcaption data-draw="tempDetailTitle" data-source="shap_points" data-field="antibiotic"></figcaption>
+  <div class="rp-chart" data-draw="tempDetail" data-source="shap_points" data-field="exposed_shap"></div>
+</figure>
+
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 7.</b> Distribution of each antibiotic's attribution over time in the selected cohort: percentage of the summed daily mean |SHAP| falling in each period, and the day with the largest mean |SHAP|.</p>
+  <div class="rp-scroll">
+  <table data-source="shap_windows" data-row-key="cohort,antibiotic">
+    <thead><tr>
+      <th data-field="antibiotic">Antibiotic</th>
+      <th data-field="drug_class" class="rp-l">Class</th>
+      <th data-field="day0_pct">Day 0 (%)</th>
+      <th data-field="d6_pct">Days −6 to −1 (%)</th>
+      <th data-field="d30_pct">Days −30 to −7 (%)</th>
+      <th data-field="d90_pct">Days −90 to −31 (%)</th>
+      <th data-field="peak_day">Peak day</th>
+    </tr></thead>
+    <tbody data-draw="tWindows"></tbody>
+  </table>
+  </div>
+</div>
+
+<h2 id="limitations">Limitations</h2>
+<ul>
+  <li>The study is retrospective and uses data from a single hospital system. No temporal or external validation was performed, so performance in other settings or periods is unknown.</li>
+  <li>Validation data were used both for early stopping and for selecting the final seed. Test-set estimates are unaffected by this choice, but the validation metrics are optimistic.</li>
+  <li>The 91-day window includes the index day. Antibiotics administered on the index day may reflect empirical therapy for a suspected resistant infection rather than an antecedent risk factor.</li>
+  <li>SHAP values describe how the trained models use their inputs. They do not establish a causal effect of any antibiotic on resistance, and correlated antibiotics share attribution.</li>
+  <li>Prevalence of resistance differs substantially between cohorts (Table 1), which affects precision-recall metrics and predictive values; these should be compared across cohorts with this in mind.</li>
+</ul>
+
+<h2 id="reproducibility">Reproducibility</h2>
+<div class="rp-tablebox">
+  <p class="rp-caption"><b>Table 6.</b> Training configuration and software versions for each cohort.</p>
+  <div class="rp-scroll">
+  <table data-source="config_t" data-row-key="parameter">
+    <thead><tr>
+      <th data-field="parameter">Parameter</th>
+      <th data-field="CRPA">CRPA</th>
+      <th data-field="CRAB">CRAB</th>
+      <th data-field="CRE">CRE</th>
+      <th data-field="CRO">CRO</th>
+    </tr></thead>
+    <tbody data-draw="tConfig"></tbody>
+  </table>
+  </div>
+</div>
+<p class="rp-note">Data availability and ethics: [to be completed by the author, including the institutional review board approval reference].</p>
+
+<h2 id="references">References</h2>
+<p class="rp-note">Background references are those listed in the study protocol; cite them in the text where used. Methodological references follow.</p>
+<h3 style="margin-top:1.2rem">Background (study protocol)</h3>
+<ol class="rp-refs">
+<li>Antimicrobial Resistance Collaborators. Global burden of bacterial antimicrobial resistance in 2019: a systematic analysis. Lancet. 2022;399(10325):629-55.</li>
+<li>Kelly AM, Mathema B, Larson EL. Carbapenem-resistant Enterobacteriaceae in the community: a scoping review. Int J Antimicrob Agents. 2017;50(2):127-34.</li>
+<li>Huttner A, Harbarth S, Carlet J, Cosgrove S, Goossens H, Holmes A, et al. Antimicrobial resistance: a global view from the 2013 World Healthcare-Associated Infections Forum. Antimicrob Resist Infect Control. 2013;2:31.</li>
+<li>Lemmen SW, Lewalter K. Antibiotic stewardship and horizontal infection control are more effective than screening, isolation and eradication. Infection. 2018;46(5):581-90.</li>
+<li>Gould CV, Rothenberg R, Steinberg JP. Antibiotic resistance in long-term acute care hospitals: the perfect storm. Infect Control Hosp Epidemiol. 2006;27(9):920-5.</li>
+<li>Kim WJ, Weinstein RA, Hayden MK. The changing molecular epidemiology and establishment of endemicity of vancomycin resistance in enterococci at one hospital over a 6-year period. J Infect Dis. 1999;179(1):163-71.</li>
+<li>Shapiro JT, Leboucher G, Myard-Dury AF, Girardo P, Luzzati A, Mary M, et al. Metapopulation ecology links antibiotic resistance, consumption, and patient transfers in a network of hospital wards. Elife. 2020;9.</li>
+<li>Costelloe C, Metcalfe C, Lovering A, Mant D, Hay AD. Effect of antibiotic prescribing in primary care on antimicrobial resistance in individual patients: systematic review and meta-analysis. BMJ. 2010;340:c2096.</li>
+<li>Lipsitch M. Measuring and interpreting associations between antibiotic use and penicillin resistance in Streptococcus pneumoniae. Clin Infect Dis. 2001;32(7):1044-54.</li>
+<li>Lipsitch M, Samore MH. Antimicrobial use and antimicrobial resistance: a population perspective. Emerg Infect Dis. 2002;8(4):347-54.</li>
+<li>Murphy C, Laurence E, Allard A. Deep learning of contagion dynamics on complex networks. Nat Commun. 2021;12(1):4720.</li>
+<li>Pettit RW, Fullem R, Cheng C, Amos CI. Artificial intelligence, machine learning, and deep learning for clinical outcome prediction. Emerg Top Life Sci. 2021;5(6):729-45.</li>
+<li>Riley RD, Pate A, Dhiman P, Archer L, Martin GP, Collins GS. Clinical prediction models and the multiverse of madness. BMC Med. 2023;21(1):502.</li>
+<li>Scardoni A, Balzarini F, Signorelli C, Cabitza F, Odone A. Artificial intelligence-based tools to control healthcare associated infections: a systematic review of the literature. J Infect Public Health. 2020;13(8):1061-77.</li>
+<li>Schechner V, Temkin E, Harbarth S, Carmeli Y, Schwaber MJ. Epidemiological interpretation of studies examining the effect of antibiotic usage on resistance. Clin Microbiol Rev. 2013;26(2):289-307.</li>
+<li>Muder RR, Brennen C, Drenning SD, Stout JE, Wagener MM. Multiply antibiotic-resistant gram-negative bacilli in a long-term-care facility: a case-control study of patient risk factors and prior antibiotic use. Infect Control Hosp Epidemiol. 1997;18(12):809-13.</li>
+<li>Dahms RA, Johnson EM, Statz CL, Lee JT, Dunn DL, Beilman GJ. Third-generation cephalosporins and vancomycin as risk factors for postoperative vancomycin-resistant enterococcus infection. Arch Surg. 1998;133(12):1343-6.</li>
+<li>Fernandez A, Pereira MJ, Suarez JM, Poza M, Trevino M, Villalon P, et al. Emergence in Spain of a multidrug-resistant Enterobacter cloacae clinical isolate producing SFO-1 extended-spectrum beta-lactamase. J Clin Microbiol. 2011;49(3):822-8.</li>
+<li>Gottesman BS, Carmeli Y, Shitrit P, Chowers M. Impact of quinolone restriction on resistance patterns of Escherichia coli isolated from urine by culture in a community setting. Clin Infect Dis. 2009;49(6):869-75.</li>
+<li>Spagnolo F, Cristofari P, Tatonetti NP, Ginzburg LR, Dykhuizen DE. Pathogen population structure can explain hospital outbreaks. ISME J. 2018;12(12):2835-43.</li>
+<li>Vilches TN, Bonesso MF, Guerra HM, Fortaleza C, Park AW, Ferreira CP. The role of intra and inter hospital patient transfer in the dissemination of healthcare-associated multidrug-resistant pathogens. Epidemics. 2019;26:104-15.</li>
+<li>Harrison AM, Gajic O, Pickering BW, Herasevich V. Development and implementation of sepsis alert systems. Clin Chest Med. 2016;37(2):219-29.</li>
+<li>Balki I, Amirabadi A, Levman J, Martel AL, Emersic Z, Meden B, et al. Sample-size determination methodologies for machine learning in medical imaging research: a systematic review. Can Assoc Radiol J. 2019;70(4):344-53.</li>
+<li>Vasikasin V. Precision antibiotic prescribing for the treatment of third-generation cephalosporin resistant Enterobacterales infections [PhD thesis]. London (UK): Imperial College London, Department of Infectious Disease; 2024.</li>
+</ol>
+<h3 style="margin-top:1.4rem">Methodological</h3>
+<ol class="rp-refs" start="25">
+<li>Hochreiter S, Schmidhuber J. Long short-term memory. Neural Computation. 1997;9(8):1735-80.</li>
+<li>Lundberg SM, Lee S-I. A unified approach to interpreting model predictions. Advances in Neural Information Processing Systems 30. 2017:4765-74.</li>
+<li>Sundararajan M, Taly A, Yan Q. Axiomatic attribution for deep networks. Proceedings of the 34th International Conference on Machine Learning. 2017:3319-28.</li>
+<li>Collins GS, Moons KGM, Dhiman P, et al. TRIPOD+AI statement: updated guidance for reporting clinical prediction models that use regression or machine learning methods. BMJ. 2024;385:e078378.</li>
+<li>Van Calster B, McLernon DJ, van Smeden M, Wynants L, Steyerberg EW. Calibration: the Achilles heel of predictive analytics. BMC Medicine. 2019;17:230.</li>
+</ol>
+
+
+<p class="rp-foot">All figures and tables are drawn from aggregate model outputs stored in <code>data/report-data.js</code>. No patient identifiers are included. Figure 8 plots the SHAP values of individual explained patient-days as anonymous numbers.</p>
+
+</main>
+</div>
+<button id="totop" type="button" aria-label="Back to top">↑</button>
+<script src="assets/d3.min.js"></script>
+<script src="data/report-data.js"></script>
+<script>
+(function () {
+  var R = window.REPORT || {};
+  var calcs = {}, cache = {}, draws = {}, onData = [];
+  var defaults = { cohort: 'CRPA', cls: '', dir: '', q: '', minv: 0, sort: 'magnitude', tmetric: 'magnitude', tscale: 'global', drug: '' };
+  var params = Object.assign({}, defaults);
+  var timer = null;
+  function run() {
+    timer = null;
+    onData.forEach(function (f) { try { f(); } catch (e) { console.error(e); } });
+    document.querySelectorAll('[data-draw]').forEach(function (el) {
+      var f = draws[el.dataset.draw];
+      if (!f) return;
+      try { f(el); } catch (e) { console.error('draw ' + el.dataset.draw, e); }
+    });
+    document.querySelectorAll('.rp-xscroll').forEach(function (el) {
+      if (!el.dataset.sc && el.scrollWidth > el.clientWidth + 4) { el.scrollLeft = el.scrollWidth; el.dataset.sc = '1'; }
+    });
+  }
+  function schedule() { if (timer === null) timer = requestAnimationFrame(run); }
+  window.dash = {
+    colors: ['#3b82c4', '#e07b2f', '#2f9e6e', '#9b6bd1'],
+    calc: function (id, o) { calcs[id] = o; },
+    data: function (id) {
+      if (R[id]) return { status: 'ok', data: R[id] };
+      if (calcs[id]) {
+        if (!cache[id]) cache[id] = calcs[id].fn.apply(null, calcs[id].inputs.map(function (i) { return window.dash.data(i).data; }));
+        return { status: 'ok', data: cache[id] };
+      }
+      return { status: 'missing', data: [] };
+    },
+    draw: function (name, fn) { draws[name] = fn; },
+    onData: function (fn) { onData.push(fn); },
+    params: function () { return Object.assign({}, params); },
+    setParams: function (p) { Object.assign(params, p); schedule(); },
+    resetParams: function () { params = Object.assign({}, defaults); schedule(); }
+  };
+  var lastW = 0;
+  window.addEventListener('DOMContentLoaded', function () { lastW = document.documentElement.clientWidth; run(); });
+  window.addEventListener('load', function () { run(); });
+  window.addEventListener('resize', function () {
+    var w = document.documentElement.clientWidth;
+    if (w !== lastW) { lastW = w; clearTimeout(window.__rt); window.__rt = setTimeout(schedule, 150); }
+  });
+})();
+
+</script>
+<script>
+
+const COH = ['CRPA', 'CRAB', 'CRE', 'CRO'];
+const f3 = d3.format('.3f'), f2 = d3.format('.2f'), f1 = d3.format('.1f'), f4 = d3.format('.4f'), fi = d3.format(',');
+const FMT = { f3, f2, f1, f4, fi };
+const ok = (id) => { const g = dash.data(id); return g.status === 'ok' ? g.data : null; };
+const colorOf = (c) => dash.colors[Math.max(0, COH.indexOf(c)) % dash.colors.length];
+
+dash.calc('perf_text', {
+  inputs: ['performance'],
+  title: 'Test-set metrics, formatted',
+  description: 'Point estimates with 95% bootstrap intervals, formatted for Table 2.',
+  fn: (performance) => performance.map((r) => ({
+    cohort: r.cohort,
+    patients_events: r.n_test.toLocaleString('en-US') + ' (' + r.events_test.toLocaleString('en-US') + ')',
+    auroc: r.auroc.toFixed(3) + ' (' + r.auroc_lo.toFixed(3) + '–' + r.auroc_hi.toFixed(3) + ')',
+    auprc: r.auprc.toFixed(3) + ' (' + r.auprc_lo.toFixed(3) + '–' + r.auprc_hi.toFixed(3) + ')',
+    no_skill: r.auprc_no_skill.toFixed(3),
+    brier: r.brier.toFixed(3),
+    slope: r.calibration_slope.toFixed(2),
+    intercept: r.calibration_intercept.toFixed(2)
+  }))
+});
+
+dash.calc('config_t', {
+  inputs: ['config'],
+  title: 'Configuration by cohort',
+  description: 'Training settings and software versions, one column per cohort, for Table 6.',
+  fn: (config) => {
+    const keys = [['final_model', 'Final model'], ['selected_seed', 'Selected seed'], ['seeds_trained', 'Seeds trained'], ['units', 'LSTM units per layer'], ['dropout', 'Dropout rate'], ['batch_size', 'Batch size'], ['patience', 'Early-stopping patience (epochs)'], ['validation_fraction', 'Validation fraction of development patients'], ['python', 'Python'], ['tensorflow', 'TensorFlow'], ['keras', 'Keras'], ['numpy', 'NumPy'], ['pandas', 'pandas'], ['run_saved', 'Run saved']];
+    return keys.map((k) => { const row = { parameter: k[1] }; config.forEach((r) => { row[r.cohort] = String(r[k[0]]); }); return row; });
+  }
+});
+
+dash.calc('shap_wide', {
+  inputs: ['shap_antibiotics'],
+  title: 'Mean |SHAP| by antibiotic and cohort',
+  description: 'One row per antibiotic with a column per cohort, for Table 5.',
+  fn: (shap) => {
+    const m = new Map();
+    shap.forEach((r) => {
+      if (!m.has(r.antibiotic)) m.set(r.antibiotic, { antibiotic: r.antibiotic, drug_class: r.drug_class, CRPA: null, CRAB: null, CRE: null, CRO: null });
+      m.get(r.antibiotic)[r.cohort] = r.mean_abs_shap;
+    });
+    return Array.from(m.values());
+  }
+});
+
+// ---- inline numbers
+dash.draw('val', (el) => {
+  const g = dash.data(el.dataset.source);
+  el.textContent = '—';
+  if (g.status !== 'ok') return;
+  const [k, v] = el.dataset.where.split('=');
+  const row = g.data.find((r) => String(r[k]) === v);
+  if (row) el.textContent = FMT[el.dataset.fmt](row[el.dataset.field]);
+});
+
+dash.draw('topdrugs', (el) => {
+  const rows = ok('shap_antibiotics');
+  el.textContent = '';
+  if (!rows) return;
+  const top = new Map();
+  COH.forEach((c) => {
+    const r = rows.filter((d) => d.cohort === c).sort((a, b) => b.mean_abs_shap - a.mean_abs_shap)[0];
+    if (r) { if (!top.has(r.antibiotic)) top.set(r.antibiotic, []); top.get(r.antibiotic).push(c); }
+  });
+  const join = (a) => a.length < 2 ? a[0] : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+  const parts = Array.from(top.entries()).map(([drug, cs]) => drug.toLowerCase() + ' in ' + join(cs));
+  el.textContent = 'The antibiotic with the largest mean absolute SHAP value was ' + join(parts) + '.';
+});
+
+// ---- tables
+function fillTable(name, id, cols, opts) {
+  dash.draw(name, (tb) => {
+    tb.replaceChildren();
+    const rows = ok(id);
+    if (!rows) return;
+    rows.forEach((r) => {
+      const tr = document.createElement('tr');
+      if (opts && opts.key) tr.dataset.key = opts.key(r);
+      if (opts && opts.sel && opts.sel(r)) tr.className = 'rp-sel';
+      cols.forEach((c, i) => {
+        const td = document.createElement('td');
+        const v = r[c.k];
+        td.textContent = v === null || v === undefined ? '—' : (c.f ? c.f(v) : String(v));
+        if (c.left) td.className = 'rp-l';
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  });
+}
+fillTable('tCohorts', 'cohorts', [
+  { k: 'cohort' }, { k: 'n_total', f: fi }, { k: 'n_train', f: fi }, { k: 'n_validation', f: fi }, { k: 'n_test', f: fi },
+  { k: 'resistant_train_pct', f: f1 }, { k: 'resistant_validation_pct', f: f1 }, { k: 'resistant_test_pct', f: f1 },
+  { k: 'dynamic_channels' }, { k: 'antibiotic_channels' }]);
+fillTable('tPerf', 'perf_text', [
+  { k: 'cohort' }, { k: 'patients_events' }, { k: 'auroc' }, { k: 'auprc' }, { k: 'no_skill' }, { k: 'brier' }, { k: 'slope' }, { k: 'intercept' }]);
+fillTable('tThresh', 'performance', [
+  { k: 'cohort' }, { k: 'cutoff', f: f3 }, { k: 'sensitivity', f: f3 }, { k: 'specificity', f: f3 }, { k: 'ppv', f: f3 }, { k: 'npv', f: f3 }]);
+fillTable('tSeeds', 'seeds', [
+  { k: 'cohort' }, { k: 'seed' }, { k: 'epochs_trained' }, { k: 'val_auroc', f: f3 }, { k: 'val_auprc', f: f3 }, { k: 'val_loss', f: f3 }, { k: 'test_auroc', f: f3 }, { k: 'selected' }],
+  { key: (r) => r.cohort + ',' + r.seed, sel: (r) => r.selected === 'Yes' });
+fillTable('tConfig', 'config_t', [{ k: 'parameter' }, { k: 'CRPA' }, { k: 'CRAB' }, { k: 'CRE' }, { k: 'CRO' }]);
+
+// ---- legends
+function legend(name, withNoSkill) {
+  dash.draw(name, (el) => {
+    el.replaceChildren();
+    COH.forEach((c) => {
+      const s = document.createElement('span');
+      const i = document.createElement('i');
+      i.style.background = colorOf(c);
+      s.append(i, document.createTextNode(c));
+      el.appendChild(s);
+    });
+  });
+}
+legend('legend');
+legend('legend2');
+dash.draw('barLegend', (el) => {
+  el.replaceChildren();
+  [['Raises predicted risk when administered', dash.colors[1 % dash.colors.length]], ['Lowers predicted risk when administered', dash.colors[0]], ['Not administered to any explained patient', 'var(--cds-chart-muted)']].forEach((x) => {
+    const s = document.createElement('span');
+    const i = document.createElement('i');
+    i.className = 'rp-box';
+    i.style.background = x[1];
+    s.append(i, document.createTextNode(x[0]));
+    el.appendChild(s);
+  });
+});
+
+// ---- generic line chart
+function lineChart(el, o) {
+  el.replaceChildren();
+  const W = Math.max(260, el.clientWidth || 320);
+  const H = Math.round(Math.min(Math.max(W * 0.85, 250), 400));
+  const svg = d3.select(el).append('svg').attr('viewBox', '0 0 ' + W + ' ' + H).attr('width', '100%').attr('role', 'img').attr('aria-label', o.label).style('display', 'block');
+  const yt = d3.scaleLinear().domain(o.ydom).ticks(5);
+  const xt = d3.scaleLinear().domain(o.xdom).ticks(o.xticks || 5);
+  const probe = svg.append('g');
+  let mw = 0;
+  yt.forEach((t) => { const n = probe.append('text').text(o.yfmt(t)).node(); mw = Math.max(mw, n.getComputedTextLength()); });
+  probe.remove();
+  const m = { top: 10, right: 16, bottom: 44, left: Math.ceil(mw) + 38 };
+  const x = d3.scaleLinear().domain(o.xdom).range([m.left, W - m.right]);
+  const y = d3.scaleLinear().domain(o.ydom).range([H - m.bottom, m.top]);
+  const g = svg.append('g');
+  yt.forEach((t) => g.append('line').attr('x1', m.left).attr('x2', W - m.right).attr('y1', y(t)).attr('y2', y(t)).style('stroke', 'var(--cds-chart-grid)'));
+  yt.forEach((t) => g.append('text').attr('x', m.left - 6).attr('y', y(t) + 4).attr('text-anchor', 'end').text(o.yfmt(t)));
+  xt.forEach((t) => g.append('text').attr('x', x(t)).attr('y', H - m.bottom + 16).attr('text-anchor', 'middle').text(o.xfmt(t)));
+  g.append('line').attr('x1', m.left).attr('x2', W - m.right).attr('y1', H - m.bottom).attr('y2', H - m.bottom).style('stroke', 'var(--cds-chart-axis)');
+  g.append('line').attr('x1', m.left).attr('x2', m.left).attr('y1', m.top).attr('y2', H - m.bottom).style('stroke', 'var(--cds-chart-axis)');
+  g.append('text').attr('class', 'rp-axtitle').attr('x', (m.left + W - m.right) / 2).attr('y', H - 6).attr('text-anchor', 'middle').text(o.xlab);
+  g.append('text').attr('class', 'rp-axtitle').attr('transform', 'translate(12,' + ((m.top + H - m.bottom) / 2) + ') rotate(-90)').attr('text-anchor', 'middle').text(o.ylab);
+  if (o.diag) g.append('line').attr('x1', x(o.xdom[0])).attr('y1', y(o.ydom[0])).attr('x2', x(o.xdom[1])).attr('y2', y(o.ydom[1])).style('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+  (o.refs || []).forEach((r) => g.append('line').attr('x1', x(o.xdom[0])).attr('x2', x(o.xdom[1])).attr('y1', y(r.y)).attr('y2', y(r.y)).style('stroke', r.color).attr('stroke-dasharray', '2 3').attr('opacity', 0.8));
+  const line = d3.line().x((d) => x(d[0])).y((d) => y(d[1]));
+  o.series.forEach((s) => {
+    g.append('path').attr('d', line(s.pts)).attr('fill', 'none').style('stroke', s.color).attr('stroke-width', 1.8).attr('stroke-linejoin', 'round');
+    if (o.dots) s.pts.forEach((p) => g.append('circle').attr('cx', x(p[0])).attr('cy', y(p[1])).attr('r', 2.6).style('fill', s.color));
+  });
+  const tip = d3.select(el).append('div').attr('class', 'rp-tip').style('display', 'none');
+  const dot = g.append('circle').attr('r', 4).attr('fill', 'none').attr('stroke-width', 2).style('display', 'none');
+  const all = [];
+  o.series.forEach((s) => s.pts.forEach((p) => all.push({ s, p, px: x(p[0]), py: y(p[1]) })));
+  svg.append('rect').attr('x', m.left).attr('y', m.top).attr('width', W - m.right - m.left).attr('height', H - m.bottom - m.top).attr('fill', 'transparent')
+    .on('pointermove', (ev) => {
+      const r = svg.node().getBoundingClientRect();
+      const sc = W / r.width;
+      const mx = (ev.clientX - r.left) * sc, my = (ev.clientY - r.top) * sc;
+      let best = null, bd = 1e9;
+      all.forEach((a) => { const d = (a.px - mx) * (a.px - mx) + (a.py - my) * (a.py - my); if (d < bd) { bd = d; best = a; } });
+      if (!best) return;
+      dot.style('display', null).attr('cx', best.px).attr('cy', best.py).style('stroke', best.s.color);
+      tip.style('display', null).text(best.s.name + ': ' + o.xname + ' ' + f3(best.p[0]) + ', ' + o.yname + ' ' + f3(best.p[1]));
+      const tw = tip.node().offsetWidth;
+      tip.style('left', Math.min(Math.max(0, best.px / sc - tw / 2), Math.max(0, el.clientWidth - tw)) + 'px').style('top', Math.max(0, best.py / sc - 38) + 'px');
+    })
+    .on('pointerleave', () => { tip.style('display', 'none'); dot.style('display', 'none'); });
+}
+function curveSeries(kind) {
+  const rows = ok('curves');
+  if (!rows) return null;
+  return COH.map((c) => ({ name: c, color: colorOf(c), pts: rows.filter((r) => r.cohort === c && r.curve === kind).sort((a, b) => a.order - b.order).map((r) => [r.x, r.y]) }));
+}
+dash.draw('chartRoc', (el) => {
+  const s = curveSeries('roc');
+  el.replaceChildren();
+  if (!s) return;
+  lineChart(el, { series: s, xdom: [0, 1], ydom: [0, 1], xlab: '1 − specificity', ylab: 'Sensitivity', xname: '1 − specificity', yname: 'sensitivity', diag: true, xfmt: d3.format('.1f'), yfmt: d3.format('.1f'), label: 'ROC curves for CRPA, CRAB, CRE and CRO' });
+});
+dash.draw('chartPr', (el) => {
+  const s = curveSeries('pr');
+  const perf = ok('performance');
+  el.replaceChildren();
+  if (!s || !perf) return;
+  const refs = perf.map((r) => ({ y: r.auprc_no_skill, color: colorOf(r.cohort) }));
+  lineChart(el, { series: s, xdom: [0, 1], ydom: [0, 1], xlab: 'Recall (sensitivity)', ylab: 'Precision (PPV)', xname: 'recall', yname: 'precision', refs, xfmt: d3.format('.1f'), yfmt: d3.format('.1f'), label: 'Precision-recall curves for CRPA, CRAB, CRE and CRO' });
+});
+dash.draw('chartCal', (el) => {
+  const s = curveSeries('calibration');
+  el.replaceChildren();
+  if (!s) return;
+  lineChart(el, { series: s, xdom: [0, 1], ydom: [0, 1], xlab: 'Predicted probability', ylab: 'Observed proportion', xname: 'predicted', yname: 'observed', diag: true, dots: true, xfmt: d3.format('.1f'), yfmt: d3.format('.1f'), label: 'Calibration plots for CRPA, CRAB, CRE and CRO' });
+});
+dash.draw('chartDay', (el) => {
+  const rows = ok('shap_by_day');
+  el.replaceChildren();
+  if (!rows) return;
+  const series = COH.map((c) => ({ name: c, color: colorOf(c), pts: rows.filter((r) => r.cohort === c).sort((a, b) => a.day - b.day).map((r) => [r.day, r.share_pct]) }));
+  const ymax = Math.ceil(d3.max(series, (s) => d3.max(s.pts, (p) => p[1])) / 2) * 2;
+  lineChart(el, { series, xdom: [-90, 0], ydom: [0, ymax], xticks: 9, xlab: 'Day relative to index day', ylab: 'Share of total |SHAP| (%)', xname: 'day', yname: 'share (%)', xfmt: d3.format('d'), yfmt: d3.format('d'), label: 'Share of SHAP value by day before the index day' });
+});
+
+// ---- SHAP filters
+function params() {
+  const p = dash.params();
+  return { cohort: p.cohort || 'CRPA', cls: p.cls || '', dir: p.dir || '', q: String(p.q || ''), minv: Number(p.minv) || 0, sort: p.sort || 'magnitude' };
+}
+const dirOf = (d) => (d.mean_shap_if_exposed === null || d.mean_shap_if_exposed === undefined) ? 0 : (d.mean_shap_if_exposed > 0 ? 1 : -1);
+function filtered() {
+  const rows = ok('shap_antibiotics');
+  if (!rows) return null;
+  const p = params();
+  let r = rows.filter((d) => d.cohort === p.cohort);
+  const total = r.length;
+  if (p.cls) r = r.filter((d) => d.drug_class === p.cls);
+  if (p.dir === 'up') r = r.filter((d) => dirOf(d) > 0);
+  if (p.dir === 'down') r = r.filter((d) => dirOf(d) < 0);
+  if (p.q) r = r.filter((d) => d.antibiotic.toLowerCase().indexOf(p.q.toLowerCase()) >= 0);
+  if (p.minv > 0) r = r.filter((d) => d.mean_abs_shap >= p.minv);
+  if (p.sort === 'name') r = r.slice().sort((a, b) => a.antibiotic.localeCompare(b.antibiotic));
+  else if (p.sort === 'class') r = r.slice().sort((a, b) => a.drug_class.localeCompare(b.drug_class) || b.mean_abs_shap - a.mean_abs_shap);
+  else r = r.slice().sort((a, b) => b.mean_abs_shap - a.mean_abs_shap);
+  return { rows: r, total, cohort: p.cohort };
+}
+dash.onData(() => {
+  const p = params();
+  document.querySelectorAll('[data-param]').forEach((el) => {
+    if (document.activeElement === el) return;
+    const v = p[el.dataset.param];
+    if (v !== undefined) el.value = v;
+  });
+});
+document.querySelectorAll('[data-param]').forEach((el) => {
+  el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', () => {
+    const k = el.dataset.param;
+    dash.setParams({ [k]: k === 'minv' ? (Number(el.value) || 0) : el.value });
+  });
+});
+const reset = document.getElementById('f-reset');
+if (reset) reset.addEventListener('click', () => dash.resetParams());
+
+dash.draw('classSel', (sel) => {
+  const rows = ok('shap_antibiotics');
+  sel.replaceChildren(new Option('All classes', ''));
+  if (rows) Array.from(new Set(rows.map((r) => r.drug_class))).sort().forEach((c) => sel.appendChild(new Option(c, c)));
+  sel.value = params().cls;
+});
+dash.draw('shapCount', (el) => {
+  const f = filtered();
+  el.textContent = '';
+  if (!f) return;
+  el.textContent = 'Showing ' + f.rows.length + ' of ' + f.total + ' antibiotics recorded in ' + f.cohort + '.';
+});
+dash.draw('shapBars', (el) => {
+  el.replaceChildren();
+  const f = filtered();
+  if (!f) return;
+  if (!f.rows.length) {
+    const p = document.createElement('p');
+    p.className = 'rp-empty';
+    p.textContent = 'No antibiotic matches the current filters.';
+    el.appendChild(p);
+    return;
+  }
+  const rows = f.rows;
+  const W = Math.max(300, el.clientWidth || 640);
+  const narrowB = W < 520;
+  const rowH = narrowB ? 38 : 22, top = 6, bottom = 44;
+  const H = top + rows.length * rowH + bottom;
+  const svg = d3.select(el).append('svg').attr('viewBox', '0 0 ' + W + ' ' + H).attr('width', '100%').attr('role', 'img').attr('aria-label', 'Mean absolute SHAP value of each antibiotic in ' + f.cohort).style('display', 'block');
+  const probe = svg.append('g');
+  let lw = 0, vw = 0;
+  rows.forEach((d) => {
+    lw = Math.max(lw, probe.append('text').text(d.antibiotic).node().getComputedTextLength());
+    vw = Math.max(vw, probe.append('text').text(f4(d.mean_abs_shap)).node().getComputedTextLength());
+  });
+  probe.remove();
+  const left = narrowB ? 6 : Math.ceil(lw) + 14, right = Math.ceil(vw) + 14;
+  const xmax = d3.max(rows, (d) => d.mean_abs_shap) || 1;
+  const x = d3.scaleLinear().domain([0, xmax]).nice(5).range([left, W - right]);
+  const y = d3.scaleBand().domain(rows.map((d) => d.antibiotic)).range([top, top + rows.length * rowH]).padding(0.22);
+  const g = svg.append('g');
+  x.ticks(5).forEach((t) => {
+    g.append('line').attr('x1', x(t)).attr('x2', x(t)).attr('y1', top).attr('y2', top + rows.length * rowH).style('stroke', 'var(--cds-chart-grid)');
+    g.append('text').attr('x', x(t)).attr('y', top + rows.length * rowH + 14).attr('text-anchor', 'middle').text(d3.format('.3f')(t));
+  });
+  g.append('text').attr('class', 'rp-axtitle').attr('x', (left + W - right) / 2).attr('y', H - 6).attr('text-anchor', 'middle').text('Mean |SHAP| per patient (probability units)');
+  const up = dash.colors[1 % dash.colors.length], down = dash.colors[0];
+  const tip = d3.select(el).append('div').attr('class', 'rp-tip').style('display', 'none');
+  rows.forEach((d) => {
+    const yy = y(d.antibiotic);
+    const by = narrowB ? yy + 15 : yy, bh = narrowB ? Math.max(9, y.bandwidth() - 15) : y.bandwidth();
+    if (narrowB) g.append('text').attr('x', left).attr('y', yy + 11).attr('text-anchor', 'start').style('fill', 'var(--color-fg)').text(d.antibiotic);
+    else g.append('text').attr('x', left - 8).attr('y', yy + y.bandwidth() / 2 + 4).attr('text-anchor', 'end').text(d.antibiotic);
+    g.append('rect').attr('x', left).attr('y', by).attr('width', Math.max(1, x(d.mean_abs_shap) - left)).attr('height', bh).style('fill', dirOf(d) > 0 ? up : (dirOf(d) < 0 ? down : 'var(--cds-chart-muted)'));
+    g.append('text').attr('x', x(d.mean_abs_shap) + 6).attr('y', by + bh / 2 + 4).text(f4(d.mean_abs_shap));
+    g.append('rect').attr('x', 0).attr('y', yy).attr('width', W).attr('height', y.bandwidth()).attr('fill', 'transparent')
+      .on('pointermove', (ev) => {
+        const r = svg.node().getBoundingClientRect();
+        const sc = W / r.width;
+        tip.style('display', null).text(d.antibiotic + ' · ' + d.drug_class + ' · mean |SHAP| ' + f4(d.mean_abs_shap) + ' · administered to ' + d.exposed_n + ' of 1,000 explained patients' + (d.mean_shap_if_exposed === null ? '' : ' · mean SHAP when administered ' + (d.mean_shap_if_exposed >= 0 ? '+' : '−') + f4(Math.abs(d.mean_shap_if_exposed))) + ' · rank ' + d.rank);
+        const tw = tip.node().offsetWidth;
+        tip.style('left', Math.min(Math.max(0, (ev.clientX - r.left) - tw / 2), Math.max(0, el.clientWidth - tw)) + 'px').style('top', Math.max(0, (yy + y.bandwidth()) / sc + 6) + 'px');
+      })
+      .on('pointerleave', () => tip.style('display', 'none'));
+  });
+});
+dash.draw('tShap', (tb) => {
+  tb.replaceChildren();
+  const f = filtered();
+  const wide = ok('shap_wide');
+  const rows = ok('shap_antibiotics');
+  if (!f || !wide || !rows) return;
+  const byName = new Map(wide.map((r) => [r.antibiotic, r]));
+  const sign = new Map(rows.map((r) => [r.cohort + '|' + r.antibiotic, dirOf(r)]));
+  const mx = d3.max(wide, (r) => d3.max(COH, (c) => r[c] || 0)) || 1;
+  const up = dash.colors[1 % dash.colors.length], down = dash.colors[0];
+  f.rows.forEach((d) => {
+    const r = byName.get(d.antibiotic);
+    if (!r) return;
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.antibiotic;
+    const a = document.createElement('td'); a.textContent = r.antibiotic; tr.appendChild(a);
+    const c = document.createElement('td'); c.textContent = r.drug_class; c.className = 'rp-l'; tr.appendChild(c);
+    COH.forEach((k) => {
+      const td = document.createElement('td');
+      const v = r[k];
+      if (v === null || v === undefined) { td.textContent = '—'; }
+      else {
+        td.textContent = f4(v);
+        const pct = Math.round(10 + 60 * Math.sqrt(v / mx));
+        td.style.background = 'color-mix(in srgb, ' + (sign.get(k + '|' + r.antibiotic) > 0 ? up : (sign.get(k + '|' + r.antibiotic) < 0 ? down : 'var(--cds-chart-muted)')) + ' ' + pct + '%, transparent)';
+      }
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+});
+
+// ---- temporal attribution of each antibiotic
+dash.calc('shap_windows', {
+  inputs: ['shap_temporal', 'shap_antibiotics'],
+  title: 'Attribution by time period',
+  description: 'For each antibiotic and cohort, the percentage of the summed daily mean |SHAP| on day 0, days −6 to −1, days −30 to −7 and days −90 to −31, and the day with the largest mean |SHAP|.',
+  fn: (t, a) => {
+    const cls = new Map(a.map((r) => [r.antibiotic, r.drug_class]));
+    const g = new Map();
+    t.forEach((r) => {
+      const k = r.cohort + '|' + r.antibiotic;
+      if (!g.has(k)) g.set(k, { cohort: r.cohort, antibiotic: r.antibiotic, drug_class: cls.get(r.antibiotic) || '', tot: 0, w0: 0, w1: 0, w2: 0, w3: 0, peak: -1, peak_day: null });
+      const o = g.get(k);
+      o.tot += r.mean_abs_shap;
+      if (r.day === 0) o.w0 += r.mean_abs_shap; else if (r.day >= -6) o.w1 += r.mean_abs_shap; else if (r.day >= -30) o.w2 += r.mean_abs_shap; else o.w3 += r.mean_abs_shap;
+      if (r.mean_abs_shap > o.peak) { o.peak = r.mean_abs_shap; o.peak_day = r.day; }
+    });
+    return Array.from(g.values()).map((o) => ({
+      cohort: o.cohort, antibiotic: o.antibiotic, drug_class: o.drug_class,
+      day0_pct: o.tot > 0 ? 100 * o.w0 / o.tot : null, d6_pct: o.tot > 0 ? 100 * o.w1 / o.tot : null,
+      d30_pct: o.tot > 0 ? 100 * o.w2 / o.tot : null, d90_pct: o.tot > 0 ? 100 * o.w3 / o.tot : null,
+      peak_day: o.tot > 0 ? o.peak_day : null
+    }));
+  }
+});
+
+const MIN_N = 10;
+function temporalByDrug(cohort) {
+  const t = ok('shap_temporal');
+  if (!t) return null;
+  const m = new Map();
+  t.forEach((r) => {
+    if (r.cohort !== cohort) return;
+    if (!m.has(r.antibiotic)) m.set(r.antibiotic, new Array(91));
+    m.get(r.antibiotic)[r.day + 90] = r;
+  });
+  return m;
+}
+function chosenDrug(f) {
+  const names = f.rows.map((r) => r.antibiotic);
+  const want = String(dash.params().drug || '');
+  return names.indexOf(want) >= 0 ? want : (names[0] || '');
+}
+dash.draw('drugSel', (sel) => {
+  const f = filtered();
+  sel.replaceChildren();
+  if (!f) return;
+  f.rows.forEach((r) => sel.appendChild(new Option(r.antibiotic, r.antibiotic)));
+  sel.value = chosenDrug(f);
+});
+dash.draw('tWindows', (tb) => {
+  tb.replaceChildren();
+  const f = filtered();
+  const w = ok('shap_windows');
+  if (!f || !w) return;
+  const by = new Map(w.filter((r) => r.cohort === f.cohort).map((r) => [r.antibiotic, r]));
+  f.rows.forEach((d) => {
+    const r = by.get(d.antibiotic);
+    if (!r) return;
+    const tr = document.createElement('tr');
+    tr.dataset.key = encodeURIComponent(r.cohort) + ',' + encodeURIComponent(r.antibiotic);
+    [['antibiotic', null, false], ['drug_class', null, true], ['day0_pct', f1, false], ['d6_pct', f1, false], ['d30_pct', f1, false], ['d90_pct', f1, false], ['peak_day', (v) => String(v).replace('-', '−'), false]].forEach((c) => {
+      const td = document.createElement('td');
+      const v = r[c[0]];
+      td.textContent = v === null || v === undefined ? '—' : (c[1] ? c[1](v) : String(v));
+      if (c[2]) td.className = 'rp-l';
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+});
+
+dash.draw('tempHeat', (el) => {
+  el.replaceChildren();
+  const f = filtered();
+  const m = f && temporalByDrug(f.cohort);
+  if (!f || !m) return;
+  if (!f.rows.length) {
+    const p = document.createElement('p'); p.className = 'rp-empty'; p.textContent = 'No antibiotic matches the current filters.'; el.appendChild(p); return;
+  }
+  const metric = dash.params().tmetric || 'magnitude';
+  const byRow = dash.params().tscale === 'row';
+  const up = dash.colors[1 % dash.colors.length], down = dash.colors[0];
+  const valOf = (r) => metric === 'magnitude' ? r.mean_abs_shap : (r.exposed_n >= MIN_N ? Math.abs(r.mean_shap_if_exposed) : 0);
+  let mx = 0;
+  m.forEach((arr) => arr.forEach((r) => {
+    const v = metric === 'magnitude' ? r.mean_abs_shap : (r.exposed_n >= MIN_N ? Math.abs(r.mean_shap_if_exposed) : 0);
+    if (v > mx) mx = v;
+  }));
+  if (!mx) mx = 1;
+  const ramp = (c) => 'linear-gradient(to right, color-mix(in srgb, ' + c + ' 8%, transparent), ' + c + ')';
+  const lg = document.createElement('div');
+  lg.className = 'rp-legend';
+  const items = metric === 'magnitude'
+    ? [['0', down], ['Mean |SHAP| ' + f4(mx), null]]
+    : [['Lowers predicted risk', down], ['Raises predicted risk', up]];
+  if (metric === 'magnitude') {
+    const s = document.createElement('span');
+    const i = document.createElement('i'); i.className = 'rp-box'; i.style.width = '90px'; i.style.background = ramp(down);
+    s.append(document.createTextNode('0'), i, document.createTextNode((byRow ? 'maximum of each antibiotic' : f4(mx)) + ' (mean |SHAP|; shading by square root)'));
+    lg.appendChild(s);
+  } else {
+    items.forEach((x) => {
+      const s = document.createElement('span');
+      const i = document.createElement('i'); i.className = 'rp-box'; i.style.width = '60px'; i.style.background = ramp(x[1]);
+      s.append(i, document.createTextNode(x[0] + (byRow ? ' (relative to each antibiotic)' : ' (up to ' + f4(mx) + ')')));
+      lg.appendChild(s);
+    });
+    const s = document.createElement('span');
+    s.appendChild(document.createTextNode('Blank: fewer than ' + MIN_N + ' of 1,000 explained patients received the antibiotic that day'));
+    lg.appendChild(s);
+  }
+  el.appendChild(lg);
+  const rows = f.rows;
+  const W = Math.max(720, el.clientWidth || 700);
+  const rowH = 16, top = 22, bottom = 40;
+  const H = top + rows.length * rowH + bottom;
+  const svg = d3.select(el).append('svg').attr('viewBox', '0 0 ' + W + ' ' + H).attr('width', W).attr('role', 'img').attr('aria-label', 'Daily SHAP value of each antibiotic in ' + f.cohort).style('display', 'block');
+  const probe = svg.append('g');
+  let lw = 0;
+  rows.forEach((d) => { lw = Math.max(lw, probe.append('text').text(d.antibiotic).node().getComputedTextLength()); });
+  probe.remove();
+  const left = Math.ceil(lw) + 12, right = 8;
+  const cw = (W - left - right) / 91;
+  const g = svg.append('g');
+  [-90, -80, -70, -60, -50, -40, -30, -20, -10, 0].forEach((dd) => {
+    const x = left + (dd + 90) * cw + cw / 2;
+    g.append('text').attr('x', x).attr('y', top - 8).attr('text-anchor', 'middle').text(dd === 0 ? '0' : '−' + Math.abs(dd));
+    g.append('text').attr('x', x).attr('y', top + rows.length * rowH + 14).attr('text-anchor', 'middle').text(dd === 0 ? '0' : '−' + Math.abs(dd));
+  });
+  g.append('text').attr('class', 'rp-axtitle').attr('x', (left + W - right) / 2).attr('y', H - 6).attr('text-anchor', 'middle').text('Day relative to index day');
+  rows.forEach((d, i) => {
+    const y = top + i * rowH;
+    g.append('text').attr('x', left - 8).attr('y', y + rowH / 2 + 4).attr('text-anchor', 'end').text(d.antibiotic);
+    const arr = m.get(d.antibiotic) || [];
+    const rowMax = byRow ? (d3.max(arr.filter(Boolean), valOf) || 1) : mx;
+    arr.forEach((r, k) => {
+      if (!r) return;
+      let v, c;
+      if (metric === 'magnitude') { v = r.mean_abs_shap; c = down; }
+      else { if (r.exposed_n < MIN_N) return; v = Math.abs(r.mean_shap_if_exposed); c = r.mean_shap_if_exposed > 0 ? up : down; }
+      const pct = Math.round(100 * Math.sqrt(v / rowMax));
+      if (pct <= 0) return;
+      g.append('rect').attr('x', left + k * cw).attr('y', y + 1).attr('width', Math.max(0.8, cw - 0.4)).attr('height', rowH - 2).style('fill', 'color-mix(in srgb, ' + c + ' ' + Math.max(14, pct) + '%, transparent)');
+    });
+  });
+  const tip = d3.select(el).append('div').attr('class', 'rp-tip').style('display', 'none');
+  svg.append('rect').attr('x', left).attr('y', top).attr('width', W - left - right).attr('height', rows.length * rowH).attr('fill', 'transparent')
+    .on('pointermove', (ev) => {
+      const r0 = svg.node().getBoundingClientRect();
+      const sc = W / r0.width;
+      const mx0 = (ev.clientX - r0.left) * sc, my0 = (ev.clientY - r0.top) * sc;
+      const k = Math.min(90, Math.max(0, Math.floor((mx0 - left) / cw)));
+      const i = Math.min(rows.length - 1, Math.max(0, Math.floor((my0 - top) / rowH)));
+      const rr = (m.get(rows[i].antibiotic) || [])[k];
+      if (!rr) { tip.style('display', 'none'); return; }
+      tip.style('display', null).text(rows[i].antibiotic + ' · day ' + (rr.day === 0 ? '0' : '−' + Math.abs(rr.day)) + ' · administered to ' + rr.exposed_n + ' of 1,000 · mean |SHAP| ' + f4(rr.mean_abs_shap) + (rr.mean_shap_if_exposed === null ? '' : ' · mean SHAP when administered ' + (rr.mean_shap_if_exposed >= 0 ? '+' : '−') + f4(Math.abs(rr.mean_shap_if_exposed))));
+      const tw = tip.node().offsetWidth;
+      tip.style('left', Math.min(Math.max(0, (ev.clientX - r0.left) - tw / 2), Math.max(0, el.clientWidth - tw)) + 'px').style('top', Math.max(0, (top + (i + 1) * rowH) / sc + 40) + 'px');
+    })
+    .on('pointerleave', () => tip.style('display', 'none'));
+});
+
+const asArray = (v) => Array.isArray(v) ? v : JSON.parse(v);
+function pointsRow(cohort, drug) {
+  const pts = ok('shap_points');
+  const r = pts && pts.find((q) => q.cohort === cohort && q.antibiotic === drug);
+  if (!r) return null;
+  return { exposed_day: asArray(r.exposed_day), exposed_shap: asArray(r.exposed_shap), notexposed_p05: asArray(r.notexposed_p05), notexposed_median: asArray(r.notexposed_median), notexposed_p95: asArray(r.notexposed_p95) };
+}
+dash.draw('tempDetailTitle', (el) => {
+  const f = filtered();
+  el.replaceChildren();
+  if (!f || !ok('shap_points') || !f.rows.length) return;
+  const drug = chosenDrug(f);
+  const row = pointsRow(f.cohort, drug);
+  const b = document.createElement('b');
+  b.textContent = 'Figure 8. ';
+  el.append(b, document.createTextNode('Daily SHAP value of ' + drug + ' in ' + f.cohort + ' for each explained patient and day. Dark red: days on which the patient received the antibiotic' + (row ? ' (' + fi(row.exposed_shap.length) + ' patient-days)' : '') + '. Blue: patients who did not receive it; the line spans the 5th to 95th percentile and the dash marks the median for that day.'));
+});
+dash.draw('tempDetail', (el) => {
+  el.replaceChildren();
+  const f = filtered();
+  if (!f || !ok('shap_points') || !f.rows.length) return;
+  const drug = chosenDrug(f);
+  const row = pointsRow(f.cohort, drug);
+  if (!row) return;
+  const EXP = '#b3261e', NOT = '#3b5bdb';
+  const W = Math.max(320, el.clientWidth || 700);
+  const H = Math.round(Math.min(Math.max(W * 0.55, 320), 460));
+  const svg = d3.select(el).append('svg').attr('viewBox', '0 0 ' + W + ' ' + H).attr('width', '100%').attr('role', 'img').attr('aria-label', 'SHAP value of ' + drug + ' by day in ' + f.cohort).style('display', 'block');
+  const lo = Math.min(0, d3.min(row.exposed_shap) || 0, d3.min(row.notexposed_p05));
+  const hi = Math.max(0, d3.max(row.exposed_shap) || 0, d3.max(row.notexposed_p95));
+  const pad = (hi - lo) * 0.06 || 0.001;
+  const yd = [lo - pad, hi + pad];
+  const yfmt = d3.format('.3f');
+  const yt = d3.scaleLinear().domain(yd).ticks(7);
+  const probe = svg.append('g');
+  let mw = 0;
+  yt.forEach((t) => { mw = Math.max(mw, probe.append('text').text(yfmt(t)).node().getComputedTextLength()); });
+  let rw = 0;
+  ['Exposed', 'Not exposed'].forEach((t) => { rw = Math.max(rw, probe.append('text').text(t).node().getComputedTextLength()); });
+  probe.remove();
+  const narrowD = W < 520;
+  const m = { top: narrowD ? 58 : 30, right: narrowD ? 14 : Math.ceil(rw) + 56, bottom: 62, left: Math.ceil(mw) + 40 };
+  const x = d3.scaleLinear().domain([-90.5, 0.5]).range([m.left, W - m.right]);
+  const y = d3.scaleLinear().domain(yd).range([H - m.bottom, m.top]);
+  const cw = (W - m.left - m.right) / 91;
+  const g = svg.append('g');
+  g.append('text').attr('x', (m.left + W - m.right) / 2).attr('y', 16).attr('text-anchor', 'middle').attr('class', 'rp-axtitle').style('font-size', '13px').text(drug + ' (' + f.cohort + ')');
+  yt.forEach((t) => {
+    g.append('line').attr('x1', m.left).attr('x2', W - m.right).attr('y1', y(t)).attr('y2', y(t)).style('stroke', 'var(--cds-chart-grid)');
+    g.append('text').attr('x', m.left - 6).attr('y', y(t) + 4).attr('text-anchor', 'end').text(yfmt(t));
+  });
+  g.append('line').attr('x1', m.left).attr('x2', W - m.right).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-reference)');
+  d3.range(-90, 1, 5).forEach((dd) => {
+    g.append('text').attr('transform', 'translate(' + x(dd) + ',' + (H - m.bottom + 12) + ') rotate(-90)').attr('text-anchor', 'end').attr('dy', '0.35em').text(dd === 0 ? '0' : '−' + Math.abs(dd));
+  });
+  g.append('text').attr('class', 'rp-axtitle').attr('x', (m.left + W - m.right) / 2).attr('y', H - 6).attr('text-anchor', 'middle').text('Time step (day relative to index day)');
+  g.append('text').attr('class', 'rp-axtitle').attr('transform', 'translate(12,' + ((m.top + H - m.bottom) / 2) + ') rotate(-90)').attr('text-anchor', 'middle').text('SHAP value');
+  for (let k = 0; k < 91; k++) {
+    const xx = x(k - 90);
+    g.append('line').attr('x1', xx).attr('x2', xx).attr('y1', y(row.notexposed_p05[k])).attr('y2', y(row.notexposed_p95[k])).style('stroke', NOT).attr('stroke-width', Math.max(1, cw * 0.28)).attr('opacity', 0.28);
+    g.append('line').attr('x1', xx - cw * 0.42).attr('x2', xx + cw * 0.42).attr('y1', y(row.notexposed_median[k])).attr('y2', y(row.notexposed_median[k])).style('stroke', NOT).attr('stroke-width', 1.6);
+  }
+  row.exposed_shap.forEach((v, i) => {
+    const xx = x(row.exposed_day[i]);
+    g.append('line').attr('x1', xx - cw * 0.42).attr('x2', xx + cw * 0.42).attr('y1', y(v)).attr('y2', y(v)).style('stroke', EXP).attr('stroke-width', 1.6).attr('opacity', 0.85);
+  });
+  if (narrowD) {
+    g.append('rect').attr('x', m.left).attr('y', 28).attr('width', 12).attr('height', 12).style('fill', EXP);
+    g.append('text').attr('x', m.left + 18).attr('y', 38).text('Exposed');
+    g.append('rect').attr('x', m.left + 92).attr('y', 28).attr('width', 12).attr('height', 12).style('fill', NOT);
+    g.append('text').attr('x', m.left + 110).attr('y', 38).text('Not exposed');
+  } else {
+    const bx = W - m.right + 24, bh = Math.min(150, (H - m.top - m.bottom) * 0.7), by = m.top + 6;
+    g.append('rect').attr('x', bx).attr('y', by).attr('width', 14).attr('height', bh / 2).style('fill', EXP);
+    g.append('rect').attr('x', bx).attr('y', by + bh / 2).attr('width', 14).attr('height', bh / 2).style('fill', NOT);
+    g.append('text').attr('x', bx + 20).attr('y', by + bh / 4 + 4).text('Exposed');
+    g.append('text').attr('x', bx + 20).attr('y', by + 3 * bh / 4 + 4).text('Not exposed');
+  }
+  const tip = d3.select(el).append('div').attr('class', 'rp-tip').style('display', 'none');
+  svg.append('rect').attr('x', m.left).attr('y', m.top).attr('width', W - m.left - m.right).attr('height', H - m.top - m.bottom).attr('fill', 'transparent')
+    .on('pointermove', (ev) => {
+      const r0 = svg.node().getBoundingClientRect();
+      const sc = W / r0.width;
+      const mx = (ev.clientX - r0.left) * sc, my = (ev.clientY - r0.top) * sc;
+      let best = -1, bd = 14 * 14;
+      row.exposed_shap.forEach((v, i) => { const dx = x(row.exposed_day[i]) - mx, dy = y(v) - my; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } });
+      const dd = Math.min(0, Math.max(-90, Math.round(x.invert(mx))));
+      const k = dd + 90;
+      const lab = dd === 0 ? '0' : '−' + Math.abs(dd);
+      tip.style('display', null).text(best >= 0
+        ? 'Day ' + (row.exposed_day[best] === 0 ? '0' : '−' + Math.abs(row.exposed_day[best])) + ' · exposed · SHAP ' + f4(row.exposed_shap[best])
+        : 'Day ' + lab + ' · not exposed: median ' + f4(row.notexposed_median[k]) + ', 5th–95th percentile ' + f4(row.notexposed_p05[k]) + ' to ' + f4(row.notexposed_p95[k]));
+      const tw = tip.node().offsetWidth;
+      tip.style('left', Math.min(Math.max(0, mx / sc - tw / 2), Math.max(0, el.clientWidth - tw)) + 'px').style('top', Math.max(0, my / sc - 40) + 'px');
+    })
+    .on('pointerleave', () => tip.style('display', 'none'));
+});
+
+// ---- cohort flow diagram
+dash.draw('flow', (el) => {
+  el.replaceChildren();
+  const fl = ok('cohort_flow');
+  const co = ok('cohorts');
+  if (!fl || !co) return;
+  const c = params().cohort;
+  const F = fl.find((r) => r.cohort === c);
+  const C = co.find((r) => r.cohort === c);
+  if (!F || !C) return;
+  const W = Math.max(320, el.clientWidth || 760);
+  const narrow = W < 560;
+  const fs = narrow ? 11 : 12.5, lh = fs + 3;
+  const svg = d3.select(el).append('svg').attr('width', '100%').attr('role', 'img').attr('aria-label', 'Flow diagram of episode selection for ' + c).style('display', 'block');
+  const wrap = (txt, maxW) => {
+    const probe = svg.append('text').style('font-size', fs + 'px');
+    const words = txt.split(' ');
+    const lines = [];
+    let cur = '';
+    words.forEach((w) => {
+      const t = cur ? cur + ' ' + w : w;
+      probe.text(t);
+      if (probe.node().getComputedTextLength() > maxW && cur) { lines.push(cur); cur = w; } else cur = t;
+    });
+    if (cur) lines.push(cur);
+    probe.remove();
+    return lines;
+  };
+  const g = svg.append('g');
+  const pad = 8;
+  let maxY = 0;
+  // box(cx, y, w, label, count spec, dashed)
+  function box(cx, y, w, label, nums, dashed) {
+    const lines = wrap(label, w - 2 * pad);
+    const h = pad * 2 + lines.length * lh + nums.length * (lh + 1);
+    g.append('rect').attr('x', cx - w / 2).attr('y', y).attr('width', w).attr('height', h).attr('rx', 5)
+      .style('fill', dashed ? 'transparent' : 'var(--color-panel)').style('stroke', 'var(--color-border-line)').style('stroke-width', 1.2).attr('stroke-dasharray', dashed ? '4 3' : null);
+    lines.forEach((ln, i) => g.append('text').attr('x', cx).attr('y', y + pad + (i + 1) * lh - 3).attr('text-anchor', 'middle').style('fill', 'var(--color-fg)').style('font-size', fs + 'px').text(ln));
+    nums.forEach((n, i) => {
+      const t = g.append('text').attr('x', cx).attr('y', y + pad + lines.length * lh + (i + 1) * (lh + 1) - 3).attr('text-anchor', 'middle').style('fill', 'var(--color-fg)').style('font-size', fs + 'px').style('font-weight', 600).style('font-variant-numeric', 'tabular-nums')
+        .attr('data-source', n.src).attr('data-field', n.field).attr('data-where', 'cohort=' + c).text(n.text + ' ' + fi(n.v));
+    });
+    maxY = Math.max(maxY, y + h);
+    return { cx, top: y, bottom: y + h, h, w };
+  }
+  const arrow = (x1, y1, x2, y2) => g.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).style('stroke', 'var(--cds-chart-axis)').style('stroke-width', 1.2).attr('marker-end', 'url(#rpArrow)');
+  svg.append('defs').append('marker').attr('id', 'rpArrow').attr('viewBox', '0 0 8 8').attr('refX', 7).attr('refY', 4).attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto')
+    .append('path').attr('d', 'M0,0 L8,4 L0,8 Z').style('fill', 'var(--cds-chart-axis)');
+  const gap = narrow ? 22 : 28;
+  const colW = Math.min(300, W * 0.42);
+  const lx = W * 0.26, rx = W * 0.74, mid = W / 2;
+  const n = (src, field, text, v) => ({ src, field, text, v });
+  const top = box(mid, 4, Math.min(W - 16, 520), 'Patients with at least one clinical culture of the target organism tested against a carbapenem, index day on or after 1 January 2012', [n('cohort_flow', 'raw_total', 'n =', F.raw_total)]);
+  const y1 = top.bottom + gap;
+  const gl = box(lx, y1, colW, 'Resistant group: first carbapenem-resistant culture is the index day', [n('cohort_flow', 'positive_raw', 'n =', F.positive_raw)]);
+  const gr = box(rx, y1, colW, 'Non-resistant group: random tested culture is the index day', [n('cohort_flow', 'negative_raw', 'n =', F.negative_raw)]);
+  arrow(mid, top.bottom, lx, y1);
+  arrow(mid, top.bottom, rx, y1);
+  const y2 = Math.max(gl.bottom, gr.bottom) + gap;
+  const el_ = box(lx, y2, colW, 'Excluded: carbapenem-resistant result before the index day', [n('cohort_flow', 'positive_prior_removed', 'n =', F.positive_prior_removed)], true);
+  const er = box(rx, y2, colW, 'Excluded: carbapenem-resistant result before the index day', [n('cohort_flow', 'negative_prior_removed', 'n =', F.negative_prior_removed)], true);
+  arrow(lx, gl.bottom, lx, y2);
+  arrow(rx, gr.bottom, rx, y2);
+  const y3 = Math.max(el_.bottom, er.bottom) + gap;
+  const kl = box(lx, y3, colW, 'Resistant episodes included', [n('cohort_flow', 'positive_kept', 'n =', F.positive_kept)]);
+  const kr = box(rx, y3, colW, 'Non-resistant episodes included', [n('cohort_flow', 'negative_kept', 'n =', F.negative_kept)]);
+  arrow(lx, el_.bottom, lx, y3);
+  arrow(rx, er.bottom, rx, y3);
+  const y4 = Math.max(kl.bottom, kr.bottom) + gap;
+  const all = box(mid, y4, Math.min(W - 16, 360), 'Episodes included in the study', [n('cohort_flow', 'kept_total', 'n =', F.kept_total)]);
+  arrow(lx, kl.bottom, mid - 40, y4);
+  arrow(rx, kr.bottom, mid + 40, y4);
+  const y5 = all.bottom + gap;
+  const pw = Math.min(250, (W - 24) / 3 - 6);
+  const parts = [['Training set', 'n_train', 'resistant_train_pct', C.n_train, C.resistant_train_pct], ['Validation set', 'n_validation', 'resistant_validation_pct', C.n_validation, C.resistant_validation_pct], ['Test set', 'n_test', 'resistant_test_pct', C.n_test, C.resistant_test_pct]];
+  const xs = [W * 0.17, W * 0.5, W * 0.83];
+  parts.forEach((p, i) => {
+    const b = box(xs[i], y5, pw, p[0] + ' (patients not shared between sets)', [n('cohorts', p[1], 'n =', p[3])]);
+    arrow(mid, all.bottom, xs[i], y5);
+    const t = g.append('text').attr('x', xs[i]).attr('y', b.bottom + 14).attr('text-anchor', 'middle').style('fill', 'var(--cds-text-secondary)').style('font-size', (fs - 1) + 'px')
+      .attr('data-source', 'cohorts').attr('data-field', p[2]).attr('data-where', 'cohort=' + c).text(f1(p[4]) + '% resistant');
+    maxY = Math.max(maxY, b.bottom + 18);
+  });
+  svg.attr('viewBox', '0 0 ' + W + ' ' + Math.ceil(maxY + 6));
+});
+
+
+// ---- navigation, back-to-top
+(function () {
+  var det = document.getElementById('tocd');
+  var mq = window.matchMedia('(min-width: 1100px)');
+  function sync() { if (det) { if (mq.matches) det.setAttribute('open', ''); else det.removeAttribute('open'); } }
+  sync();
+  if (mq.addEventListener) mq.addEventListener('change', sync);
+  document.querySelectorAll('.toc a').forEach(function (a) {
+    a.addEventListener('click', function () { if (!mq.matches && det) det.removeAttribute('open'); });
+  });
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function onScroll() {
+    var y = window.scrollY + 90, cur = 0;
+    targets.forEach(function (t, i) { if (t && t.offsetTop <= y) cur = i; });
+    links.forEach(function (a, i) { a.classList.toggle('on', i === cur); });
+    var b = document.getElementById('totop');
+    if (b) b.classList.toggle('show', window.scrollY > 700);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+  var b = document.getElementById('totop');
+  if (b) b.addEventListener('click', function () { window.scrollTo({ top: 0 }); });
+})();
+
+</script>
+</body>
+</html>
