@@ -244,7 +244,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     <div class="ar-card-head">
      <h2>AR cases</h2>
      <div class="ar-tools">
-      <select class="dash-select ar-month" id="arc-group" data-draw="arc-group" aria-label="Consult service" data-source="cases"></select>
+      <select class="dash-select ar-month" id="arc-group" data-draw="arc-group" aria-label="Unit (consult or underlying disease)" data-source="cases tos"></select>
      </div>
     </div>
     <div class="ar-post" data-draw="arcases" data-source="cases"></div>
@@ -256,7 +256,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     <div class="ar-card-head">
      <h2>All submitted cases</h2>
      <div class="ar-tools">
-      <select class="dash-select ar-month" id="all-group" data-draw="all-group" aria-label="Consult service" data-source="cases"></select>
+      <select class="dash-select ar-month" id="all-group" data-draw="all-group" aria-label="Unit (consult or underlying disease)" data-source="cases tos"></select>
      </div>
     </div>
     <p class="ar-note" data-draw="all-count">—</p>
@@ -323,7 +323,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
    <section class="ar-card" id="ar-services">
     <div class="ar-card-head"><h2>แผนกที่รับ Consult</h2></div>
     <div class="ar-list" data-draw="services" data-source="services"></div>
-    <p class="ar-note">Each case counts once for every service it consulted. Bar and number show cases presented at AR; small text is cases submitted and the share presented.</p>
+    <p class="ar-note">A case counts once for every unit it consulted, and for every unit its underlying disease belongs to (matched with the same TOS keywords as diagnoses, e.g. ESRD → Nephrology, SLE → Rheumatology). Bar and number show cases presented at AR; small text is cases submitted and the share presented.</p>
    </section>
   </section>
 
@@ -585,16 +585,20 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   });
 
   dash.calc('services', {
-    inputs: ['cases'],
+    inputs: ['cases', 'tos'],
     title: 'Top Consult Service',
-    description: 'For each consult service: cases that consulted it, how many were presented at AR, and the share presented.',
-    fn: (allCases) => {
+    description: 'For each unit: cases that consulted it or whose underlying disease matches that unit (by the same TOS keywords used for diagnoses), counted once per unit; how many were presented at AR, and the share presented.',
+    fn: (allCases, tos) => {
       const p = dash.params(); let yr = String(p.year || ''), mo = String(p.month || '');
       if (mo.length === 7) { yr = mo.slice(0, 4); mo = mo.slice(5); }
       const cases = allCases.filter((c) => (!yr || c.ar_date.slice(0, 4) === yr) && (!mo || c.ar_date.slice(5, 7) === mo));
+      const UNIT = { 'Cardiology': 'Cardiology', 'Pulmonary system': 'Pulmonology', 'Nephrology': 'Nephrology', 'Gastroenterology & Hepatology': 'Gastroenterology and hepatology', 'Neurology': 'Neurology', 'Hematology': 'Hematology', 'Infectious Disease': 'Infectious diseases', 'Endocrinology & Metabolism': 'Endocrinology', 'Rheumatology': 'Rheumatology', 'Oncology': 'Oncology', 'Dermatology': 'Dermatology', 'Critical care medicine': 'Critical care', 'Clinical nutrition': 'Nutrition', 'Toxicology & clinical pharmacology': 'Toxicology' };
+      const rules = tos.filter((r) => UNIT[r.group]).map((r) => ({ unit: UNIT[r.group], re: new RegExp(r.keywords, 'i') }));
       const m = new Map();
       for (const c of cases) {
-        for (const s of c.consult.split(',').map((x) => x.trim()).filter(Boolean)) {
+        const units = new Set(c.consult.split(',').map((x) => x.trim()).filter(Boolean));
+        for (const r of rules) if (r.re.test(c.underlying)) units.add(r.unit);
+        for (const s of units) {
           const e = m.get(s) || { service: s, submitted: 0, presented: 0 };
           e.submitted++; e.presented += c.presented;
           m.set(s, e);
@@ -869,6 +873,17 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     return li;
   };
 
+  // Units of a case: consult services plus units its underlying disease belongs to (TOS keywords).
+  const UNIT_OF_GROUP = { 'Cardiology': 'Cardiology', 'Pulmonary system': 'Pulmonology', 'Nephrology': 'Nephrology', 'Gastroenterology & Hepatology': 'Gastroenterology and hepatology', 'Neurology': 'Neurology', 'Hematology': 'Hematology', 'Infectious Disease': 'Infectious diseases', 'Endocrinology & Metabolism': 'Endocrinology', 'Rheumatology': 'Rheumatology', 'Oncology': 'Oncology', 'Dermatology': 'Dermatology', 'Critical care medicine': 'Critical care', 'Clinical nutrition': 'Nutrition', 'Toxicology & clinical pharmacology': 'Toxicology' };
+  let unitRules = null, unitRulesSrc = null;
+  const unitsOf = (c) => {
+    const t = dash.data('tos');
+    if (t.status === 'ok' && t.data !== unitRulesSrc) { unitRulesSrc = t.data; unitRules = t.data.filter((r) => UNIT_OF_GROUP[r.group]).map((r) => ({ unit: UNIT_OF_GROUP[r.group], re: new RegExp(r.keywords, 'i') })); }
+    const units = new Set(c.consult.split(',').map((x) => x.trim()).filter(Boolean));
+    if (unitRules) for (const r of unitRules) if (r.re.test(c.underlying)) units.add(r.unit);
+    return [...units];
+  };
+
   // AR cases tab: a case row that opens to its full details on tap.
   window.AR.openCases = new Set();
   const caseDrop = (c, opts = {}) => {
@@ -955,8 +970,8 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   window.AR.arcGroup = '';
   dash.draw('arc-group', (sel) => {
     const d = dash.data('cases');
-    const groups = d.status === 'ok' ? [...new Set(d.data.flatMap((c) => c.consult.split(',').map((x) => x.trim()).filter(Boolean)))].sort() : [];
-    sel.replaceChildren(new Option('All consult services', ''), ...groups.map((x) => new Option(x, x)));
+    const groups = d.status === 'ok' ? [...new Set(d.data.flatMap(unitsOf))].sort() : [];
+    sel.replaceChildren(new Option('All units (consult + U/D)', ''), ...groups.map((x) => new Option(x, x)));
     sel.value = groups.includes(window.AR.arcGroup) ? window.AR.arcGroup : '';
     sel.onchange = () => { window.AR.arcGroup = sel.value; window.AR.more.arcases = false; dash.draw('arcases'); };
   });
@@ -965,8 +980,8 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     el.replaceChildren();
     if (d.status !== 'ok') { failMsg(el, d.status, 'AR cases'); return; }
     const grp = window.AR.arcGroup;
-    const picks = d.data.filter((c) => c.presented === 1 && window.AR.inPeriod(c.ar_date) && (!grp || c.consult.split(',').map((x) => x.trim()).includes(grp)));
-    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No AR case matches this period and consult service.')); return; }
+    const picks = d.data.filter((c) => c.presented === 1 && window.AR.inPeriod(c.ar_date) && (!grp || unitsOf(c).includes(grp)));
+    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No AR case matches this period and unit.')); return; }
     const days = [...d3.group(picks, (c) => c.ar_date)].sort((a, b) => b[0].localeCompare(a[0]));
     const shown = window.AR.more.arcases ? days : days.slice(0, 5);
     shown.forEach(([date, list]) => {
@@ -979,11 +994,11 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 
   // All submitted cases tab
   window.AR.allGroup = '';
-  const svcList = (c) => c.consult.split(',').map((x) => x.trim()).filter(Boolean);
+  const svcList = unitsOf;
   dash.draw('all-group', (sel) => {
     const d = dash.data('cases');
     const groups = d.status === 'ok' ? [...new Set(d.data.flatMap(svcList))].sort() : [];
-    sel.replaceChildren(new Option('All consult services', ''), ...groups.map((x) => new Option(x, x)));
+    sel.replaceChildren(new Option('All units (consult + U/D)', ''), ...groups.map((x) => new Option(x, x)));
     sel.value = groups.includes(window.AR.allGroup) ? window.AR.allGroup : '';
     sel.onchange = () => { window.AR.allGroup = sel.value; window.AR.more.allcases = false; dash.draw('allcases'); dash.draw('all-count'); };
   });
@@ -1004,7 +1019,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     el.replaceChildren();
     if (d.status !== 'ok') { failMsg(el, d.status, 'Submitted cases'); return; }
     const picks = allPicks();
-    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No submitted case matches this period and consult service.')); return; }
+    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No submitted case matches this period and unit.')); return; }
     const days = [...d3.group(picks, (c) => c.ar_date)].sort((a, b) => b[0].localeCompare(a[0]));
     const shown = window.AR.more.allcases ? days : days.slice(0, 5);
     shown.forEach(([date, list]) => {
