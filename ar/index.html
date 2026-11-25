@@ -193,6 +193,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-drop details[open] .ar-chev { transform: rotate(180deg); }
 .ar-drop .ar-case { margin: 6px 0 4px 70px; }
 @media (max-width: 560px) { .ar-drop .ar-case { margin-left: 0; } }
+.ar-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: #08201d; background: var(--ar-accent); border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 2px; }
 .ar-sub { font-size: 14px; font-weight: 600; margin: 16px 0 10px; color: var(--ar-muted); }
 .ar-gaps { display: grid; gap: 12px; }
 .ar-gap-g { display: grid; gap: 6px; }
@@ -229,6 +230,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   <nav class="ar-nav" id="ar-nav" aria-label="Sections">
    <div class="ar-menu" role="tablist">
     <button class="ar-menu-btn is-on" type="button" role="tab" aria-selected="true" data-tab="arcases" id="menu-arcases">AR cases</button>
+    <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="allcases" id="menu-allcases">All submitted</button>
     <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="resident" id="menu-resident">Top Resident</button>
     <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="case" id="menu-case">Top Case</button>
     <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="consult" id="menu-consult">Top Consult</button>
@@ -246,6 +248,19 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
      </div>
     </div>
     <div class="ar-post" data-draw="arcases" data-source="cases"></div>
+   </section>
+  </section>
+
+  <section class="ar-panel" id="allcases" role="tabpanel" aria-labelledby="menu-allcases" hidden="">
+   <section class="ar-card" id="ar-allcases">
+    <div class="ar-card-head">
+     <h2>All submitted cases</h2>
+     <div class="ar-tools">
+      <select class="dash-select ar-month" id="all-group" data-draw="all-group" aria-label="Consult service" data-source="cases"></select>
+     </div>
+    </div>
+    <p class="ar-note" data-draw="all-count">—</p>
+    <div class="ar-post" data-draw="allcases" data-source="cases"></div>
    </section>
   </section>
 
@@ -856,13 +871,14 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 
   // AR cases tab: a case row that opens to its full details on tap.
   window.AR.openCases = new Set();
-  const caseDrop = (c) => {
-    const li = mk('li', 'ar-drop');
+  const caseDrop = (c, opts = {}) => {
+    const li = mk('li', 'ar-drop' + (opts.badge && c.presented === 1 ? ' is-ar' : ''));
     const det = mk('details');
     det.open = window.AR.openCases.has(c.timestamp);
     det.addEventListener('toggle', () => { if (det.open) window.AR.openCases.add(c.timestamp); else window.AR.openCases.delete(c.timestamp); });
     const sum = mk('summary');
     const row = caseItem(c);
+    if (opts.badge && c.presented === 1) { const dx = row.querySelector('.ar-dx'); if (dx) dx.prepend(mk('span', 'ar-badge', 'AR')); }
     sum.append(...row.childNodes, mk('span', 'ar-chev', '\u25BE'));
     det.append(sum);
     const card = caseCard(c, 0);
@@ -959,6 +975,44 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       el.append(ul);
     });
     if (days.length > 5) { const m = mk('div', 'ar-more'); m.append(moreBtn('arcases', days.length + ' days', ['arcases'])); el.append(m); }
+  });
+
+  // All submitted cases tab
+  window.AR.allGroup = '';
+  const svcList = (c) => c.consult.split(',').map((x) => x.trim()).filter(Boolean);
+  dash.draw('all-group', (sel) => {
+    const d = dash.data('cases');
+    const groups = d.status === 'ok' ? [...new Set(d.data.flatMap(svcList))].sort() : [];
+    sel.replaceChildren(new Option('All consult services', ''), ...groups.map((x) => new Option(x, x)));
+    sel.value = groups.includes(window.AR.allGroup) ? window.AR.allGroup : '';
+    sel.onchange = () => { window.AR.allGroup = sel.value; window.AR.more.allcases = false; dash.draw('allcases'); dash.draw('all-count'); };
+  });
+  const allPicks = () => {
+    const d = dash.data('cases');
+    if (d.status !== 'ok') return null;
+    const grp = window.AR.allGroup;
+    return d.data.filter((c) => window.AR.inPeriod(c.ar_date) && (!grp || svcList(c).includes(grp)));
+  };
+  dash.draw('all-count', (el) => {
+    const p = allPicks();
+    if (!p) { el.textContent = '—'; return; }
+    const ar = p.filter((c) => c.presented === 1).length;
+    el.textContent = p.length + ' cases submitted, ' + ar + ' presented at AR (marked AR). Tap a case to see its details.';
+  });
+  dash.draw('allcases', (el) => {
+    const d = dash.data('cases');
+    el.replaceChildren();
+    if (d.status !== 'ok') { failMsg(el, d.status, 'Submitted cases'); return; }
+    const picks = allPicks();
+    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No submitted case matches this period and consult service.')); return; }
+    const days = [...d3.group(picks, (c) => c.ar_date)].sort((a, b) => b[0].localeCompare(a[0]));
+    const shown = window.AR.more.allcases ? days : days.slice(0, 5);
+    shown.forEach(([date, list]) => {
+      const ul = mk('ul', 'ar-recent ar-dayblock');
+      for (const c of list.slice().sort((a, b) => b.presented - a.presented)) ul.append(caseDrop(c, { badge: true }));
+      el.append(ul);
+    });
+    if (days.length > 5) { const m = mk('div', 'ar-more'); m.append(moreBtn('allcases', days.length + ' days', ['allcases'])); el.append(m); }
   });
 
   // Bar chart view (Top Resident, Top Ward): full bar = cases submitted, filled = presented.
