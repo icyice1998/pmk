@@ -37,7 +37,6 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar * { box-sizing: border-box; }
 .ar.theme-navy { --ar-bg: #0b1426; --ar-panel: #111d35; --ar-panel-2: #172645; --ar-line: #24365a; --ar-fg: #eef2fa; --ar-muted: #93a3c0; --ar-accent: #e2b84d; --ar-ink: #1f1604; --ar-chart-2: #6f86b3; --ar-zero: #ef8a7a; color-scheme: dark; }
 .ar.theme-forest { --ar-bg: #0f1411; --ar-panel: #161d18; --ar-panel-2: #1d261f; --ar-line: #2b372d; --ar-fg: #e9efe7; --ar-muted: #97a596; --ar-accent: #9ccc6b; --ar-ink: #14200a; --ar-chart-2: #7d9181; --ar-zero: #e8806e; color-scheme: dark; }
-.ar.theme-indigo { --ar-bg: #10121f; --ar-panel: #171a2b; --ar-panel-2: #1e2236; --ar-line: #2b3049; --ar-fg: #eceefa; --ar-muted: #9aa0bf; --ar-accent: #8fa2ff; --ar-ink: #0c1033; --ar-chart-2: #7b7f9e; --ar-zero: #f08a8a; color-scheme: dark; }
 .ar.theme-clinic { --ar-bg: #f5f7f8; --ar-panel: #ffffff; --ar-panel-2: #edf1f3; --ar-line: #d9e0e5; --ar-fg: #16222c; --ar-muted: #566472; --ar-accent: #0b7f72; --ar-ink: #ffffff; --ar-chart-2: #7f8f9e; --ar-zero: #c0392b; color-scheme: light; }
 .ar.theme-sky { --ar-bg: #f3f6fb; --ar-panel: #ffffff; --ar-panel-2: #e9eff8; --ar-line: #d3dceb; --ar-fg: #0f1d33; --ar-muted: #53627a; --ar-accent: #1f63c6; --ar-ink: #ffffff; --ar-chart-2: #7a8cab; --ar-zero: #c0392b; color-scheme: light; }
 .ar.theme-pink { --ar-bg: #fbf3f6; --ar-panel: #ffffff; --ar-panel-2: #fbe8ef; --ar-line: #f1d5e0; --ar-fg: #2e1a24; --ar-muted: #7a5868; --ar-accent: #d96894; --ar-ink: #3b1024; --ar-chart-2: #a77d90; --ar-zero: #b42318; color-scheme: light; }
@@ -211,6 +210,18 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-topic-d[open] > summary > span:first-child::before { transform: rotate(90deg); }
 .ar-topic-cases { margin: 4px 0 8px; padding-left: 4px; }
 .ar-topic-cases:empty { display: none; }
+.ar-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 10px; }
+.ar-th { font: inherit; text-align: left; cursor: pointer; display: grid; gap: 6px; padding: 8px; border-radius: 14px; background: var(--ar-panel-2); border: 2px solid transparent; color: var(--ar-fg); }
+.ar-th:hover { border-color: var(--ar-line); }
+.ar-th[aria-pressed="true"] { border-color: var(--ar-accent); }
+.ar-th:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.ar-th-prev { position: relative; display: block; height: 64px; border-radius: 10px; background: var(--s-bg); border: 1px solid rgba(127, 127, 127, .25); overflow: hidden; }
+.ar-th-bar { position: absolute; left: 10px; height: 8px; border-radius: 4px; }
+.ar-th-bar.a { top: 18px; width: 62%; background: var(--s-acc); }
+.ar-th-bar.b { top: 34px; width: 44%; background: var(--s-c2); }
+.ar-th-chip { position: absolute; right: 8px; bottom: 8px; font-size: 9px; font-weight: 700; letter-spacing: .06em; padding: 2px 6px; border-radius: 4px; background: var(--s-panel); color: var(--s-fg); border: 1px solid rgba(127, 127, 127, .25); }
+.ar-th-name { font-weight: 600; font-size: 14px; }
+.ar-th-mode { font-size: 12px; color: var(--ar-muted); }
 .ar-sub { font-size: 14px; font-weight: 600; margin: 16px 0 10px; color: var(--ar-muted); }
 .ar-gaps { display: grid; gap: 12px; }
 .ar-gap-g { display: grid; gap: 6px; }
@@ -234,7 +245,6 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
    <div class="ar-tools" id="ar-tools">
     <select class="dash-select ar-month" id="ar-year" data-draw="year" aria-label="Year" data-source="cases"></select>
     <select class="dash-select ar-month" id="ar-month" data-draw="month" aria-label="Month" data-source="cases"></select>
-    <select class="dash-select ar-month" id="ar-theme" aria-label="Colour theme"><option value="teal">Teal Night</option><option value="navy">Navy & Gold</option><option value="forest">Field Green</option><option value="indigo">Indigo Night</option><option value="clinic">Clinical Light</option><option value="sky">Ward Blue Light</option><option value="pink">Pink Pastel</option></select>
     <button class="ar-btn" id="ar-refresh" type="button">Refresh from sheet</button>
     <span class="ar-updated" data-updated>Loading…</span>
    </div>
@@ -254,6 +264,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="consult" id="menu-consult">Top Consult</button>
     <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="current" id="menu-current">Current AR / By date</button>
     <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="ward" id="menu-ward">Top Ward</button>
+    <button class="ar-menu-btn" type="button" role="tab" aria-selected="false" data-tab="theme" id="menu-theme">Theme</button>
    </div>
   </nav>
 
@@ -369,6 +380,45 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     </div>
     <div class="ar-list" data-viewpart="wards" data-v="list" data-draw="wards" data-source="wards"></div>
     <div class="ar-chart" data-viewpart="wards" data-v="chart" data-draw="wards-chart" data-source="wards" hidden=""></div>
+   </section>
+  </section>
+
+  <section class="ar-panel" id="theme" role="tabpanel" aria-labelledby="menu-theme" hidden="">
+   <section class="ar-card" id="ar-theme-card">
+    <div class="ar-card-head"><h2>Theme</h2></div>
+    <div class="ar-themes" role="group" aria-label="Colour theme">
+     <button class="ar-th" type="button" data-theme-pick="teal" id="th-teal" aria-pressed="false" style="--s-bg:#0e1217;--s-panel:#161b22;--s-acc:#5cc8b8;--s-c2:#7d8fa6;--s-fg:#e6ebf1">
+      <span class="ar-th-prev"><span class="ar-th-bar a"></span><span class="ar-th-bar b"></span><span class="ar-th-chip">AR</span></span>
+      <span class="ar-th-name">Teal Night</span>
+      <span class="ar-th-mode">Dark · default</span>
+     </button>
+     <button class="ar-th" type="button" data-theme-pick="navy" id="th-navy" aria-pressed="false" style="--s-bg:#0b1426;--s-panel:#111d35;--s-acc:#e2b84d;--s-c2:#6f86b3;--s-fg:#eef2fa">
+      <span class="ar-th-prev"><span class="ar-th-bar a"></span><span class="ar-th-bar b"></span><span class="ar-th-chip">AR</span></span>
+      <span class="ar-th-name">Navy & Gold</span>
+      <span class="ar-th-mode">Dark</span>
+     </button>
+     <button class="ar-th" type="button" data-theme-pick="forest" id="th-forest" aria-pressed="false" style="--s-bg:#0f1411;--s-panel:#161d18;--s-acc:#9ccc6b;--s-c2:#7d9181;--s-fg:#e9efe7">
+      <span class="ar-th-prev"><span class="ar-th-bar a"></span><span class="ar-th-bar b"></span><span class="ar-th-chip">AR</span></span>
+      <span class="ar-th-name">Field Green</span>
+      <span class="ar-th-mode">Dark</span>
+     </button>
+     <button class="ar-th" type="button" data-theme-pick="clinic" id="th-clinic" aria-pressed="false" style="--s-bg:#f5f7f8;--s-panel:#ffffff;--s-acc:#0b7f72;--s-c2:#7f8f9e;--s-fg:#16222c">
+      <span class="ar-th-prev"><span class="ar-th-bar a"></span><span class="ar-th-bar b"></span><span class="ar-th-chip">AR</span></span>
+      <span class="ar-th-name">Clinical Light</span>
+      <span class="ar-th-mode">Light</span>
+     </button>
+     <button class="ar-th" type="button" data-theme-pick="sky" id="th-sky" aria-pressed="false" style="--s-bg:#f3f6fb;--s-panel:#ffffff;--s-acc:#1f63c6;--s-c2:#7a8cab;--s-fg:#0f1d33">
+      <span class="ar-th-prev"><span class="ar-th-bar a"></span><span class="ar-th-bar b"></span><span class="ar-th-chip">AR</span></span>
+      <span class="ar-th-name">Ward Blue Light</span>
+      <span class="ar-th-mode">Light</span>
+     </button>
+     <button class="ar-th" type="button" data-theme-pick="pink" id="th-pink" aria-pressed="false" style="--s-bg:#fbf3f6;--s-panel:#ffffff;--s-acc:#d96894;--s-c2:#a77d90;--s-fg:#2e1a24">
+      <span class="ar-th-prev"><span class="ar-th-bar a"></span><span class="ar-th-bar b"></span><span class="ar-th-chip">AR</span></span>
+      <span class="ar-th-name">Pink Pastel</span>
+      <span class="ar-th-mode">Light</span>
+     </button>
+    </div>
+    <p class="ar-note">Your choice is saved on this device only. Other people still see Teal Night until they pick their own.</p>
    </section>
   </section>
 
@@ -1247,21 +1297,21 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       dash.draw('current');
     });
   }
-  // Colour theme: remembered on this device only.
-  const THEMES = ['teal', 'navy', 'forest', 'indigo', 'clinic', 'sky', 'pink'];
-  for (const sel of document.querySelectorAll('#ar-theme')) {
-    const applyTheme = (t) => {
-      if (!THEMES.includes(t)) t = 'teal';
-      for (const ar of document.querySelectorAll('.ar')) {
-        for (const x of THEMES) ar.classList.toggle('theme-' + x, x === t && x !== 'teal');
-        if (typeof dash.start === 'function') { const bg = getComputedStyle(ar).getPropertyValue('--ar-bg').trim(); if (bg) { document.body.style.background = bg; document.documentElement.style.background = bg; } }
-      }
-      sel.value = t;
-    };
-    let saved = 'teal';
-    try { saved = localStorage.getItem('ar-theme') || 'teal'; } catch (e) {}
-    applyTheme(saved);
-    sel.addEventListener('change', () => { applyTheme(sel.value); try { localStorage.setItem('ar-theme', sel.value); } catch (e) {} });
+  // Colour theme (Theme tab): remembered on this device only.
+  const THEMES = ['teal', 'navy', 'forest', 'clinic', 'sky', 'pink'];
+  const applyTheme = (t) => {
+    if (!THEMES.includes(t)) t = 'teal';
+    for (const ar of document.querySelectorAll('.ar')) {
+      for (const x of ['teal', 'navy', 'forest', 'indigo', 'clinic', 'sky', 'pink']) ar.classList.toggle('theme-' + x, x === t && x !== 'teal');
+      if (typeof dash.start === 'function') { const bg = getComputedStyle(ar).getPropertyValue('--ar-bg').trim(); if (bg) { document.body.style.background = bg; document.documentElement.style.background = bg; } }
+    }
+    for (const btn of document.querySelectorAll('[data-theme-pick]')) btn.setAttribute('aria-pressed', btn.getAttribute('data-theme-pick') === t ? 'true' : 'false');
+  };
+  let savedTheme = 'teal';
+  try { savedTheme = localStorage.getItem('ar-theme') || 'teal'; } catch (e) {}
+  applyTheme(savedTheme);
+  for (const btn of document.querySelectorAll('[data-theme-pick]')) {
+    btn.addEventListener('click', () => { const t = btn.getAttribute('data-theme-pick'); applyTheme(t); try { localStorage.setItem('ar-theme', t); } catch (e) {} });
   }
   for (const b of document.querySelectorAll('#ar-refresh')) {
     b.addEventListener('click', () => dash.refresh('cases'));
