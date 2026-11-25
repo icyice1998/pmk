@@ -184,6 +184,15 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-vblock { display: grid; gap: 4px; margin-bottom: 18px; }
 .ar-vblock svg { display: block; max-width: 100%; overflow: visible; }
 .ar-vb:hover .ar-vb-bar { fill: var(--ar-fg) !important; }
+.ar-recent li.ar-drop { display: block; }
+.ar-drop summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 56px minmax(0, 1fr) 1em; gap: 10px; align-items: start; border-radius: 10px; padding: 4px; }
+.ar-drop summary::-webkit-details-marker { display: none; }
+.ar-drop summary:hover { background: var(--ar-panel-2); }
+.ar-drop summary:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.ar-drop summary .ar-chev { padding-top: 2px; }
+.ar-drop details[open] .ar-chev { transform: rotate(180deg); }
+.ar-drop .ar-case { margin: 6px 0 4px 70px; }
+@media (max-width: 560px) { .ar-drop .ar-case { margin-left: 0; } }
 .ar-sub { font-size: 14px; font-weight: 600; margin: 16px 0 10px; color: var(--ar-muted); }
 .ar-gaps { display: grid; gap: 12px; }
 .ar-gap-g { display: grid; gap: 6px; }
@@ -233,7 +242,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     <div class="ar-card-head">
      <h2>AR cases</h2>
      <div class="ar-tools">
-      <select class="dash-select ar-month" id="arc-group" data-draw="arc-group" aria-label="Subspecialty" data-source="tos_groups"></select>
+      <select class="dash-select ar-month" id="arc-group" data-draw="arc-group" aria-label="Consult service" data-source="cases"></select>
      </div>
     </div>
     <div class="ar-post" data-draw="arcases" data-source="cases"></div>
@@ -845,6 +854,24 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     return li;
   };
 
+  // AR cases tab: a case row that opens to its full details on tap.
+  window.AR.openCases = new Set();
+  const caseDrop = (c) => {
+    const li = mk('li', 'ar-drop');
+    const det = mk('details');
+    det.open = window.AR.openCases.has(c.timestamp);
+    det.addEventListener('toggle', () => { if (det.open) window.AR.openCases.add(c.timestamp); else window.AR.openCases.delete(c.timestamp); });
+    const sum = mk('summary');
+    const row = caseItem(c);
+    sum.append(...row.childNodes, mk('span', 'ar-chev', '\u25BE'));
+    det.append(sum);
+    const card = caseCard(c, 0);
+    const n = card.querySelector('.ar-case-n'); if (n) n.remove();
+    det.append(card);
+    li.append(det);
+    return li;
+  };
+
   // Current AR, as on the Post Line tab.
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const thaiDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return d + ' ' + MONTHS[m - 1] + ' ' + (y + 543); };
@@ -911,25 +938,24 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   // AR cases tab
   window.AR.arcGroup = '';
   dash.draw('arc-group', (sel) => {
-    const g = dash.data('tos_groups');
-    const groups = g.status === 'ok' ? g.data.map((r) => r.group).filter((x) => x !== 'Unclassified').sort() : [];
-    sel.replaceChildren(new Option('All subspecialties', ''), ...groups.map((x) => new Option(x, x)));
+    const d = dash.data('cases');
+    const groups = d.status === 'ok' ? [...new Set(d.data.flatMap((c) => c.consult.split(',').map((x) => x.trim()).filter(Boolean)))].sort() : [];
+    sel.replaceChildren(new Option('All consult services', ''), ...groups.map((x) => new Option(x, x)));
     sel.value = groups.includes(window.AR.arcGroup) ? window.AR.arcGroup : '';
     sel.onchange = () => { window.AR.arcGroup = sel.value; window.AR.more.arcases = false; dash.draw('arcases'); };
   });
   dash.draw('arcases', (el) => {
-    const d = dash.data('cases'), tos = dash.data('tos');
+    const d = dash.data('cases');
     el.replaceChildren();
     if (d.status !== 'ok') { failMsg(el, d.status, 'AR cases'); return; }
     const grp = window.AR.arcGroup;
-    const rules = tos.status === 'ok' ? tos.data.filter((r) => r.group === grp).map((r) => new RegExp(r.keywords, 'i')) : [];
-    const picks = d.data.filter((c) => c.presented === 1 && window.AR.inPeriod(c.ar_date) && (!grp || rules.some((re) => re.test(c.diagnosis))));
-    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No AR case matches this period and subspecialty.')); return; }
+    const picks = d.data.filter((c) => c.presented === 1 && window.AR.inPeriod(c.ar_date) && (!grp || c.consult.split(',').map((x) => x.trim()).includes(grp)));
+    if (!picks.length) { el.append(mk('div', 'ar-muted', 'No AR case matches this period and consult service.')); return; }
     const days = [...d3.group(picks, (c) => c.ar_date)].sort((a, b) => b[0].localeCompare(a[0]));
     const shown = window.AR.more.arcases ? days : days.slice(0, 5);
     shown.forEach(([date, list]) => {
       const ul = mk('ul', 'ar-recent ar-dayblock');
-      for (const c of list) ul.append(caseItem(c));
+      for (const c of list) ul.append(caseDrop(c));
       el.append(ul);
     });
     if (days.length > 5) { const m = mk('div', 'ar-more'); m.append(moreBtn('arcases', days.length + ' days', ['arcases'])); el.append(m); }
