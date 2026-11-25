@@ -14,7 +14,7 @@ html, body { margin: 0; background: #0e1217; }
 body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; -webkit-text-size-adjust: 100%; }
 :root { --font-anthropic-sans: "Inter", system-ui, sans-serif; --font-anthropic-serif: "Space Grotesk", "Inter", system-ui, sans-serif; }
 .dash-select { font: inherit; font-size: 14px; appearance: none; -webkit-appearance: none; padding: 6px 30px 6px 12px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238d99a8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; cursor: pointer; }
-.ar-updated { font-size: 12px; color: #8d99a8; }
+.ar-updated { font-size: 12px; color: var(--ar-muted); }
 [hidden] { display: none !important; }
 .ar-wrap { grid-template-columns: minmax(0, 1fr); }
 .ar-wrap > *, .ar-panel > *, .ar-two > * { min-width: 0; }
@@ -25,7 +25,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar {
   --ar-bg: #0e1217; --ar-panel: #161b22; --ar-panel-2: #1c232c; --ar-line: #27303b;
   --ar-fg: #e6ebf1; --ar-muted: #8d99a8; --ar-accent: #5cc8b8; --ar-accent-dim: #2a5f59;
-  --ar-chart-2: #7d8fa6; --ar-gold: #e0b95c; --ar-silver: #b7c2cf; --ar-bronze: #c98b5e; --ar-zero: #e07a6a;
+  --ar-chart-2: #7d8fa6; --ar-ink: #08201d; --ar-gold: #e0b95c; --ar-silver: #b7c2cf; --ar-bronze: #c98b5e; --ar-zero: #e07a6a;
   color-scheme: dark;
   background: var(--ar-bg); color: var(--ar-fg);
   font-family: var(--font-anthropic-sans), system-ui, sans-serif;
@@ -35,6 +35,14 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   min-height: 100%;
 }
 .ar * { box-sizing: border-box; }
+.ar.theme-navy { --ar-bg: #0b1426; --ar-panel: #111d35; --ar-panel-2: #172645; --ar-line: #24365a; --ar-fg: #eef2fa; --ar-muted: #93a3c0; --ar-accent: #e2b84d; --ar-ink: #1f1604; --ar-chart-2: #6f86b3; --ar-zero: #ef8a7a; color-scheme: dark; }
+.ar.theme-forest { --ar-bg: #0f1411; --ar-panel: #161d18; --ar-panel-2: #1d261f; --ar-line: #2b372d; --ar-fg: #e9efe7; --ar-muted: #97a596; --ar-accent: #9ccc6b; --ar-ink: #14200a; --ar-chart-2: #7d9181; --ar-zero: #e8806e; color-scheme: dark; }
+.ar.theme-indigo { --ar-bg: #10121f; --ar-panel: #171a2b; --ar-panel-2: #1e2236; --ar-line: #2b3049; --ar-fg: #eceefa; --ar-muted: #9aa0bf; --ar-accent: #8fa2ff; --ar-ink: #0c1033; --ar-chart-2: #7b7f9e; --ar-zero: #f08a8a; color-scheme: dark; }
+.ar.theme-clinic { --ar-bg: #f5f7f8; --ar-panel: #ffffff; --ar-panel-2: #edf1f3; --ar-line: #d9e0e5; --ar-fg: #16222c; --ar-muted: #566472; --ar-accent: #0b7f72; --ar-ink: #ffffff; --ar-chart-2: #7f8f9e; --ar-zero: #c0392b; color-scheme: light; }
+.ar.theme-sky { --ar-bg: #f3f6fb; --ar-panel: #ffffff; --ar-panel-2: #e9eff8; --ar-line: #d3dceb; --ar-fg: #0f1d33; --ar-muted: #53627a; --ar-accent: #1f63c6; --ar-ink: #ffffff; --ar-chart-2: #7a8cab; --ar-zero: #c0392b; color-scheme: light; }
+.ar.theme-pink { --ar-bg: #fbf3f6; --ar-panel: #ffffff; --ar-panel-2: #fbe8ef; --ar-line: #f1d5e0; --ar-fg: #2e1a24; --ar-muted: #7a5868; --ar-accent: #d96894; --ar-ink: #3b1024; --ar-chart-2: #a77d90; --ar-zero: #b42318; color-scheme: light; }
+.ar.theme-clinic .ar-tip, .ar.theme-sky .ar-tip, .ar.theme-pink .ar-tip { box-shadow: 0 6px 20px rgba(20, 30, 50, .18); }
+
 .ar-wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
 .ar-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px; }
 .ar-eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ar-accent); margin: 0 0 4px; }
@@ -57,7 +65,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-note { font-size: 13px; color: var(--ar-muted); margin: 4px 0 0; line-height: 1.45; }
 .ar-tabs { display: inline-flex; background: var(--ar-bg); border: 1px solid var(--ar-line); border-radius: 999px; padding: 3px; }
 .ar-tab { font: inherit; font-size: 14px; font-weight: 600; color: var(--ar-muted); background: transparent; border: 0; border-radius: 999px; padding: 6px 16px; cursor: pointer; min-height: 34px; }
-.ar-tab.is-on { background: var(--ar-accent); color: #08201d; }
+.ar-tab.is-on { background: var(--ar-accent); color: var(--ar-ink); }
 .ar-search { font: inherit; font-size: 14px; color: var(--ar-fg); background: var(--ar-bg); border: 1px solid var(--ar-line); border-radius: 10px; padding: 8px 12px; width: 100%; margin-bottom: 10px; }
 .ar-search::placeholder { color: var(--ar-muted); }
 .ar-tablewrap { overflow-x: auto; }
@@ -112,7 +120,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-menu::-webkit-scrollbar { display: none; }
 .ar-menu-btn { flex: 0 0 auto; font: inherit; font-size: 14px; font-weight: 600; color: var(--ar-muted); background: var(--ar-panel); border: 1px solid var(--ar-line); border-radius: 999px; padding: 8px 16px; cursor: pointer; min-height: 40px; white-space: nowrap; }
 .ar-menu-btn:hover { color: var(--ar-fg); }
-.ar-menu-btn.is-on { background: var(--ar-accent); border-color: var(--ar-accent); color: #08201d; }
+.ar-menu-btn.is-on { background: var(--ar-accent); border-color: var(--ar-accent); color: var(--ar-ink); }
 .ar-menu-btn:focus-visible, .ar-copy:focus-visible, .ar-type:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
 .ar-panel { display: grid; gap: 16px; }
 .ar-two { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -129,7 +137,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-post-group { display: grid; gap: 10px; }
 .ar-post-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
 .ar-post-date { font-family: var(--font-anthropic-serif), Georgia, serif; font-size: 22px; }
-.ar-copy { font: inherit; font-size: 14px; font-weight: 600; color: #08201d; background: var(--ar-accent); border: 0; border-radius: 999px; padding: 8px 16px; cursor: pointer; min-height: 40px; }
+.ar-copy { font: inherit; font-size: 14px; font-weight: 600; color: var(--ar-ink); background: var(--ar-accent); border: 0; border-radius: 999px; padding: 8px 16px; cursor: pointer; min-height: 40px; }
 .ar-case { background: var(--ar-panel-2); border: 1px solid var(--ar-line); border-radius: 14px; padding: 14px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
 .ar-case-n { font-size: 12px; font-weight: 700; letter-spacing: .08em; color: var(--ar-accent); text-transform: uppercase; }
 .ar-case-who { font-weight: 600; font-size: 15px; }
@@ -141,7 +149,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ar .dash-select.ar-month { background-color: var(--ar-panel-2); color: var(--ar-fg); border: 1px solid var(--ar-line); border-radius: 999px; min-height: 40px; font-size: 14px; }
 .ar-more { margin-top: 8px; }
-.ar-date-in { font: inherit; font-size: 14px; color: var(--ar-fg); background: var(--ar-panel-2); border: 1px solid var(--ar-line); border-radius: 10px; padding: 7px 10px; min-height: 40px; color-scheme: dark; }
+.ar-date-in { font: inherit; font-size: 14px; color: var(--ar-fg); background: var(--ar-panel-2); border: 1px solid var(--ar-line); border-radius: 10px; padding: 7px 10px; min-height: 40px; }
 .ar-date-in:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
 .ar-dayblock { padding-bottom: 12px; border-bottom: 1px solid var(--ar-line); }
 .ar-dayblock:last-of-type { border-bottom: 0; }
@@ -194,7 +202,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-drop > details[open] > summary .ar-chev { transform: rotate(180deg); }
 .ar-drop .ar-case { margin: 6px 0 4px 70px; }
 @media (max-width: 560px) { .ar-drop .ar-case { margin-left: 0; } }
-.ar-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: #08201d; background: var(--ar-accent); border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 2px; }
+.ar-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--ar-ink); background: var(--ar-accent); border-radius: 4px; padding: 1px 5px; margin-right: 6px; vertical-align: 2px; }
 .ar-topic-d > summary { list-style: none; cursor: pointer; }
 .ar-topic-d > summary::-webkit-details-marker { display: none; }
 .ar-topic-d > summary:hover { background: var(--ar-panel); }
@@ -226,6 +234,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
    <div class="ar-tools" id="ar-tools">
     <select class="dash-select ar-month" id="ar-year" data-draw="year" aria-label="Year" data-source="cases"></select>
     <select class="dash-select ar-month" id="ar-month" data-draw="month" aria-label="Month" data-source="cases"></select>
+    <select class="dash-select ar-month" id="ar-theme" aria-label="Colour theme"><option value="teal">Teal Night</option><option value="navy">Navy & Gold</option><option value="forest">Field Green</option><option value="indigo">Indigo Night</option><option value="clinic">Clinical Light</option><option value="sky">Ward Blue Light</option><option value="pink">Pink Pastel</option></select>
     <button class="ar-btn" id="ar-refresh" type="button">Refresh from sheet</button>
     <span class="ar-updated" data-updated>Loading…</span>
    </div>
@@ -1237,6 +1246,22 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       for (const inp of document.querySelectorAll('#ar-date')) inp.value = '';
       dash.draw('current');
     });
+  }
+  // Colour theme: remembered on this device only.
+  const THEMES = ['teal', 'navy', 'forest', 'indigo', 'clinic', 'sky', 'pink'];
+  for (const sel of document.querySelectorAll('#ar-theme')) {
+    const applyTheme = (t) => {
+      if (!THEMES.includes(t)) t = 'teal';
+      for (const ar of document.querySelectorAll('.ar')) {
+        for (const x of THEMES) ar.classList.toggle('theme-' + x, x === t && x !== 'teal');
+        if (typeof dash.start === 'function') { const bg = getComputedStyle(ar).getPropertyValue('--ar-bg').trim(); if (bg) { document.body.style.background = bg; document.documentElement.style.background = bg; } }
+      }
+      sel.value = t;
+    };
+    let saved = 'teal';
+    try { saved = localStorage.getItem('ar-theme') || 'teal'; } catch (e) {}
+    applyTheme(saved);
+    sel.addEventListener('change', () => { applyTheme(sel.value); try { localStorage.setItem('ar-theme', sel.value); } catch (e) {} });
   }
   for (const b of document.querySelectorAll('#ar-refresh')) {
     b.addEventListener('click', () => dash.refresh('cases'));
