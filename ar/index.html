@@ -230,6 +230,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-res-btn:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 4px; }
 .ar-res-detail > td { background: var(--ar-panel-2); padding: 10px 8px 6px; }
 .ar-res-sum { font-size: 12px; color: var(--ar-muted); margin: 0 0 6px 4px; }
+.ar-table td.ar-hide-sm.ar-muted { white-space: nowrap; }
 .ar-sub { font-size: 14px; font-weight: 600; margin: 16px 0 10px; color: var(--ar-muted); }
 .ar-gaps { display: grid; gap: 12px; }
 .ar-gap-g { display: grid; gap: 6px; }
@@ -815,7 +816,12 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       bar.append(mk('span', 'ar-bar-n', r.presented), track); c2.append(bar);
       const c3 = tr.insertCell(); c3.className = 'num'; c3.textContent = r.submitted;
       const c4 = tr.insertCell(); c4.className = 'num ar-hide-sm'; c4.textContent = pct(r.rate);
-      const c5 = tr.insertCell(); c5.className = 'ar-hide-sm ar-muted'; c5.textContent = r.last_ar ? fmtDay(r.last_ar) : 'Never';
+      const c5 = tr.insertCell(); c5.className = 'ar-hide-sm ar-muted';
+      if (r.last_ar) {
+        const t = new Date(); const today = Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+        const days = Math.max(0, Math.round((today - Date.parse(r.last_ar + 'T00:00:00Z')) / 86400000));
+        c5.textContent = fmtDay(r.last_ar) + ' (' + (days === 0 ? 'today' : days + (days === 1 ? ' day' : ' days')) + ')';
+      } else c5.textContent = 'Never';
       if (open) {
         const dr = tb.insertRow(); dr.className = 'ar-res-detail';
         const td = dr.insertCell(); td.colSpan = 6;
