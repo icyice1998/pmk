@@ -770,7 +770,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   window.AR.openRes = new Set();
   const resSorted = (rows) => rows.slice().sort(window.AR.resSort === 'cases'
     ? (a, b) => b.submitted - a.submitted || b.presented - a.presented || a.name.localeCompare(b.name, 'th')
-    : (a, b) => b.presented - a.presented || a.submitted - b.submitted || a.name.localeCompare(b.name, 'th'));
+    : (a, b) => b.presented - a.presented || b.submitted - a.submitted || a.name.localeCompare(b.name, 'th'));
   const resCases = (role, name) => {
     const d = dash.data('cases');
     if (d.status !== 'ok') return [];
