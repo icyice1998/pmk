@@ -222,6 +222,14 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
 .ar-th-chip { position: absolute; right: 8px; bottom: 8px; font-size: 9px; font-weight: 700; letter-spacing: .06em; padding: 2px 6px; border-radius: 4px; background: var(--s-panel); color: var(--s-fg); border: 1px solid rgba(127, 127, 127, .25); }
 .ar-th-name { font-weight: 600; font-size: 14px; }
 .ar-th-mode { font-size: 12px; color: var(--ar-muted); }
+.ar-res-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.ar-res-tools .ar-search { flex: 1 1 180px; width: auto; margin-bottom: 0; }
+.ar-res-btn { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; display: inline-flex; gap: 6px; align-items: baseline; text-align: left; }
+.ar-res-btn .ar-chev { color: var(--ar-muted); font-size: 12px; transition: transform .15s; }
+.ar-res-btn[aria-expanded="true"] .ar-chev { transform: rotate(180deg); }
+.ar-res-btn:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 4px; }
+.ar-res-detail > td { background: var(--ar-panel-2); padding: 10px 8px 6px; }
+.ar-res-sum { font-size: 12px; color: var(--ar-muted); margin: 0 0 6px 4px; }
 .ar-sub { font-size: 14px; font-weight: 600; margin: 16px 0 10px; color: var(--ar-muted); }
 .ar-gaps { display: grid; gap: 12px; }
 .ar-gap-g { display: grid; gap: 6px; }
@@ -308,14 +316,17 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
        <button class="ar-tab" type="button" role="tab" aria-selected="false" data-role="R1" id="tab-r1">R1</button>
       </div>
      </div>
-     <input class="ar-search" id="ar-search" type="search" placeholder="Search a resident" aria-label="Search a resident">
+     <div class="ar-res-tools">
+      <input class="ar-search" id="ar-search" type="search" placeholder="Search a resident" aria-label="Search a resident">
+      <select class="dash-select ar-month" id="res-sort" aria-label="Sort residents"><option value="ar">Sort: AR presented</option><option value="cases">Sort: cases submitted</option></select>
+     </div>
      <div class="ar-tablewrap" data-viewpart="board" data-v="list">
       <table class="ar-table" data-source="leaderboard" data-row-key="role,name">
        <thead><tr>
         <th>#</th><th data-field="name">Resident</th><th data-field="presented">AR presented</th>
         <th class="num" data-field="submitted">Cases</th><th class="num ar-hide-sm" data-field="rate">Rate</th><th class="ar-hide-sm" data-field="last_ar">Last AR</th>
        </tr></thead>
-       <tbody data-draw="board"></tbody>
+       <tbody data-draw="board" data-source="cases"></tbody>
       </table>
      </div>
      <div class="ar-more" data-viewpart="board" data-v="list" data-draw="board-more"></div>
@@ -755,6 +766,18 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
     });
   }
 
+  window.AR.resSort = 'ar';
+  window.AR.openRes = new Set();
+  const resSorted = (rows) => rows.slice().sort(window.AR.resSort === 'cases'
+    ? (a, b) => b.submitted - a.submitted || b.presented - a.presented || a.name.localeCompare(b.name, 'th')
+    : (a, b) => b.presented - a.presented || a.submitted - b.submitted || a.name.localeCompare(b.name, 'th'));
+  const resCases = (role, name) => {
+    const d = dash.data('cases');
+    if (d.status !== 'ok') return [];
+    const k = role.toLowerCase();
+    return d.data.filter((c) => c[k] === name && window.AR.inPeriod(c.ar_date))
+      .sort((a, b) => b.presented - a.presented || b.ar_date.localeCompare(a.ar_date));
+  };
   dash.draw('board', (tb) => {
     const l = dash.data('leaderboard');
     tb.replaceChildren();
@@ -765,7 +788,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       return;
     }
     const role = window.AR.role, q = window.AR.q.trim().toLowerCase();
-    const all = l.data.filter((r) => r.role === role);
+    const all = resSorted(l.data.filter((r) => r.role === role));
     const max = d3.max(all, (r) => r.presented) || 1;
     const matched = all.map((r, i) => ({ ...r, rank: i + 1 })).filter((r) => !q || r.name.toLowerCase().includes(q));
     const rows = q || window.AR.more.board ? matched : matched.slice(0, 5);
@@ -779,7 +802,13 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       tr.setAttribute('data-key', pctEnc(r.role) + ',' + pctEnc(r.name));
       if (r.presented === 0) tr.className = 'ar-zero';
       const c0 = tr.insertCell(); c0.append(mk('span', 'ar-rank' + (r.rank <= 3 && r.presented > 0 ? ' r' + r.rank : ''), r.rank));
-      const c1 = tr.insertCell(); c1.className = 'ar-name'; c1.textContent = r.name;
+      const c1 = tr.insertCell(); c1.className = 'ar-name';
+      const key = r.role + '|' + r.name;
+      const open = window.AR.openRes.has(key);
+      const nb = mk('button', 'ar-res-btn'); nb.type = 'button'; nb.setAttribute('aria-expanded', open ? 'true' : 'false');
+      nb.append(mk('span', 'ar-chev', '\u25BE'), mk('span', null, r.name));
+      nb.addEventListener('click', () => { if (window.AR.openRes.has(key)) window.AR.openRes.delete(key); else window.AR.openRes.add(key); dash.draw('board'); });
+      c1.append(nb);
       const c2 = tr.insertCell(); c2.className = 'ar-barcell';
       const bar = mk('div', 'ar-bar'); const track = mk('div', 'ar-bar-track'); const fill = mk('div', 'ar-bar-fill');
       fill.style.width = (r.presented / max * 100) + '%'; track.append(fill);
@@ -787,6 +816,15 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
       const c3 = tr.insertCell(); c3.className = 'num'; c3.textContent = r.submitted;
       const c4 = tr.insertCell(); c4.className = 'num ar-hide-sm'; c4.textContent = pct(r.rate);
       const c5 = tr.insertCell(); c5.className = 'ar-hide-sm ar-muted'; c5.textContent = r.last_ar ? fmtDay(r.last_ar) : 'Never';
+      if (open) {
+        const dr = tb.insertRow(); dr.className = 'ar-res-detail';
+        const td = dr.insertCell(); td.colSpan = 6;
+        const list = resCases(r.role, r.name);
+        td.append(mk('div', 'ar-res-sum', list.length + ' cases as ' + r.role + ', ' + list.filter((c) => c.presented === 1).length + ' presented at AR'));
+        const ul = mk('ul', 'ar-recent');
+        for (const c of list) ul.append(caseDrop(c, { badge: true }));
+        td.append(ul);
+      }
     }
   });
 
@@ -1186,7 +1224,7 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   });
   barChart('board-chart', () => {
     const l = dash.data('leaderboard');
-    return { status: l.status, rows: l.status === 'ok' ? l.data.filter((r) => r.role === window.AR.role && (!window.AR.q.trim() || r.name.toLowerCase().includes(window.AR.q.trim().toLowerCase()))) : [] };
+    return { status: l.status, rows: l.status === 'ok' ? resSorted(l.data.filter((r) => r.role === window.AR.role && (!window.AR.q.trim() || r.name.toLowerCase().includes(window.AR.q.trim().toLowerCase())))) : [] };
   }, 'name', 'leaderboard', (d) => 'role=' + d.role + '&name=' + pctEnc(d.name), 'Top Resident');
   // Top Ward chart view: two vertical bar charts (ขึ้น AR = presented, ยอด admit = all submitted).
   dash.draw('wards-chart', {
@@ -1312,6 +1350,9 @@ body { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; f
   applyTheme(savedTheme);
   for (const btn of document.querySelectorAll('[data-theme-pick]')) {
     btn.addEventListener('click', () => { const t = btn.getAttribute('data-theme-pick'); applyTheme(t); try { localStorage.setItem('ar-theme', t); } catch (e) {} });
+  }
+  for (const sel of document.querySelectorAll('#res-sort')) {
+    sel.addEventListener('change', () => { window.AR.resSort = sel.value === 'cases' ? 'cases' : 'ar'; ['board', 'board-more', 'board-chart'].forEach((n) => dash.draw(n)); });
   }
   for (const b of document.querySelectorAll('#ar-refresh')) {
     b.addEventListener('click', () => dash.refresh('cases'));
